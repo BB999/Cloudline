@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bluetooth コントローラー</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="script.js"></script>
+</head>
+<body>
+    <div class="page-wrapper">
+        <header class="top-bar">
+            <div class="brand">
+                <span class="brand-mark">⌁</span>
+                <div class="brand-text">
+                    <span class="brand-title">Cloudline Wireless Pad</span>
+                    <span class="brand-caption">Bluetoothコントローラー</span>
+                </div>
+            </div>
+            <div class="status" id="connectionStatus" aria-live="polite">未接続</div>
+        </header>
+
+        <button type="button" class="mobile-settings-toggle" id="mobileSettingsToggle" aria-controls="controlPanel" aria-expanded="false">
+            <span class="mobile-settings-text">
+                <span class="mobile-settings-title">接続設定</span>
+                <span class="mobile-settings-subtitle">Bluetoothの接続・ログを開く</span>
+            </span>
+            <span class="mobile-settings-chevron" aria-hidden="true"></span>
+        </button>
+
+        <main class="layout">
+            <section class="controller-panel" aria-label="ゲームコントローラー">
+                <div class="controller-shell">
+                    <div class="shoulder-row">
+                        <button class="shoulder-button control-button" data-button="l" aria-label="Lボタン">L</button>
+                        <div class="light-bar" id="lightBar" aria-hidden="true"></div>
+                        <button class="shoulder-button control-button" data-button="r" aria-label="Rボタン">R</button>
+                    </div>
+
+                    <div class="controller-body">
+                        <div class="grip grip-left"></div>
+                        <div class="grip grip-right"></div>
+
+                        <div class="body-layer">
+                            <div class="dpad" aria-label="方向キー">
+                                <button class="dpad-button control-button" data-button="up" aria-label="上">
+                                    <span>▲</span>
+                                </button>
+                                <button class="dpad-button control-button" data-button="left" aria-label="左">
+                                    <span>◀</span>
+                                </button>
+                                <button class="dpad-button control-button" data-button="down" aria-label="下">
+                                    <span>▼</span>
+                                </button>
+                                <button class="dpad-button control-button" data-button="right" aria-label="右">
+                                    <span>▶</span>
+                                </button>
+                            </div>
+
+                            <div class="menu-cluster" aria-label="スタート・セレクト">
+                                <button class="pill-button control-button" data-button="select" aria-label="セレクトボタン">SELECT</button>
+                                <button class="pill-button control-button" data-button="start" aria-label="スタートボタン">START</button>
+                            </div>
+
+                            <div class="action-cluster" aria-label="アクションボタン">
+                                <button class="action-button control-button btn-x" data-button="x" aria-label="Xボタン">X</button>
+                                <button class="action-button control-button btn-y" data-button="y" aria-label="Yボタン">Y</button>
+                                <button class="action-button control-button btn-b" data-button="b" aria-label="Bボタン">B</button>
+                                <button class="action-button control-button btn-a" data-button="a" aria-label="Aボタン">A</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="control-panel" id="controlPanel" aria-label="接続設定">
+                <h2>接続設定</h2>
+                <p class="panel-intro">接続したいBluetoothデバイスを選択し、ボタン操作を送信します。UUIDはデバイスに合わせて変更可能です。</p>
+
+                <form class="connection-form" id="connectionForm">
+                    <label class="field">
+                        <span>サービスUUID</span>
+                        <input type="text" id="serviceUuid" value="0000abcd-0000-1000-8000-00805f9b34fb" autocomplete="off" spellcheck="false">
+                    </label>
+                    <label class="field">
+                        <span>キャラクタリスティックUUID</span>
+                        <input type="text" id="characteristicUuid" value="0000cdef-0000-1000-8000-00805f9b34fb" autocomplete="off" spellcheck="false">
+                    </label>
+                    <label class="field toggle-field">
+                        <span>Write with response</span>
+                        <input type="checkbox" id="writeWithResponse">
+                    </label>
+                </form>
+
+                <div class="actions">
+                    <button type="button" id="connectButton" class="primary-action">Bluetoothデバイスと接続</button>
+                    <button type="button" id="disconnectButton" class="ghost-action" disabled>切断</button>
+                </div>
+
+                <div class="log-panel" aria-live="polite">
+                    <div class="log-heading">ステータスログ</div>
+                    <div class="log-content" id="logContent">
+                        <p>Bluetoothを有効にし「接続」をタップしてください。</p>
+                    </div>
+                </div>
+
+                <section class="notes">
+                    <h3>使い方のヒント</h3>
+                    <ul>
+                        <li>ボタンを押すと16ビットのビットマスクとして送信されます。</li>
+                        <li>Web Bluetooth APIはHTTPSまたはlocalhostからのみ使用できます。</li>
+                        <li>対応デバイスではマルチタッチで複数ボタンを同時に押すことができます。</li>
+                    </ul>
+                </section>
+            </aside>
+        </main>
+
+        <div class="mobile-sheet-backdrop" id="settingsBackdrop"></div>
+    </div>
+</body>
+</html>
