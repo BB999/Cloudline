@@ -445,14 +445,16 @@
                 const arrayBuffer = await file.arrayBuffer();
                 audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-                drawWaveform();
-                setupMarkers();
-
                 waveformContainer.style.display = 'block';
                 controls.style.display = 'block';
                 loading.style.display = 'none';
 
-                updateTimeDisplay();
+                // DOMが更新されるのを待ってから描画
+                setTimeout(() => {
+                    drawWaveform();
+                    setupMarkers();
+                    updateTimeDisplay();
+                }, 0);
             } catch (error) {
                 console.error('Error loading audio:', error);
                 alert('オーディオファイルの読み込みに失敗しました');
@@ -461,8 +463,8 @@
         }
 
         function drawWaveform() {
-            const width = canvas.clientWidth;
-            const height = canvas.clientHeight;
+            const width = canvas.offsetWidth;
+            const height = 200;
             canvas.width = width;
             canvas.height = height;
 
@@ -474,7 +476,6 @@
             ctx.fillRect(0, 0, width, height);
 
             ctx.fillStyle = '#667eea';
-            ctx.beginPath();
 
             for (let i = 0; i < width; i++) {
                 let min = 1.0;
@@ -495,9 +496,9 @@
 
         function setupMarkers() {
             const waveformWrapper = canvas.parentElement;
-            const width = canvas.clientWidth;
+            const width = canvas.width;
 
-            // 初期位置設定
+            // 初期位置設定（開始は最初、終了は最後）
             startMarker.style.left = '20px';
             endMarker.style.left = (width + 20 - 3) + 'px';
 
@@ -520,19 +521,19 @@
 
                 const rect = waveformWrapper.getBoundingClientRect();
                 const x = (e.type.includes('touch') ? e.touches[0].clientX : e.clientX) - rect.left - 20;
-                const clampedX = Math.max(0, Math.min(x, canvas.clientWidth - 3));
+                const clampedX = Math.max(0, Math.min(x, canvas.width - 3));
 
                 if (currentMarker === startMarker) {
                     const endPos = parseFloat(endMarker.style.left);
                     if (clampedX < endPos - 20) {
                         currentMarker.style.left = (clampedX + 20) + 'px';
-                        startMarkerPos = clampedX / canvas.clientWidth;
+                        startMarkerPos = clampedX / canvas.width;
                     }
                 } else {
                     const startPos = parseFloat(startMarker.style.left);
                     if (clampedX + 20 > startPos) {
                         currentMarker.style.left = (clampedX + 20) + 'px';
-                        endMarkerPos = clampedX / canvas.clientWidth;
+                        endMarkerPos = clampedX / canvas.width;
                     }
                 }
 
@@ -566,8 +567,8 @@
         function drawSelection() {
             drawWaveform();
 
-            const width = canvas.clientWidth;
-            const height = canvas.clientHeight;
+            const width = canvas.width;
+            const height = canvas.height;
             const startX = startMarkerPos * width;
             const endX = endMarkerPos * width;
 
