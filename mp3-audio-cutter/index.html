@@ -408,6 +408,9 @@
         let animationId;
         let startMarkerPos = 0;
         let endMarkerPos = 1;
+        let playbackMarkerPos = 0;
+        let isDraggingPlaybackMarker = false;
+        let wasPlayingBeforeDrag = false;
 
         const fileInput = document.getElementById('fileInput');
         const uploadSection = document.getElementById('uploadSection');
@@ -515,6 +518,11 @@
 
             startMarkerPos = 0;
             endMarkerPos = 1;
+            playbackMarkerPos = startMarkerPos;
+            playbackMarker.style.display = 'block';
+            pauseTime = 0;
+            isDraggingPlaybackMarker = false;
+            wasPlayingBeforeDrag = false;
 
             // マーカーのドラッグ機能
             let isDragging = false;
@@ -524,6 +532,10 @@
                 isDragging = true;
                 currentMarker = marker;
                 marker.classList.add('dragging');
+                if (marker === playbackMarker) {
+                    wasPlayingBeforeDrag = isPlaying;
+                    isDraggingPlaybackMarker = true;
+                }
                 e.preventDefault();
             }
 
@@ -540,12 +552,19 @@
                         currentMarker.style.left = (clampedX + 20) + 'px';
                         startMarkerPos = clampedX / canvas.width;
                     }
-                } else {
+                } else if (currentMarker === endMarker) {
                     const startPos = parseFloat(startMarker.style.left);
                     if (clampedX + 20 > startPos) {
                         currentMarker.style.left = (clampedX + 20) + 'px';
                         endMarkerPos = clampedX / canvas.width;
                     }
+                } else if (currentMarker === playbackMarker) {
+                    currentMarker.style.left = (clampedX + 20) + 'px';
+                    playbackMarkerPos = clampedX / canvas.width;
+                    if (audioBuffer) {
+                        pauseTime = playbackMarkerPos * audioBuffer.duration;
+                    }
+                    renderPlaybackMarker();
                 }
 
                 updateTimeDisplay();
@@ -555,6 +574,20 @@
             function endDrag() {
                 if (isDragging && currentMarker) {
                     currentMarker.classList.remove('dragging');
+                    if (currentMarker === playbackMarker) {
+                        if (audioBuffer) {
+                            pauseTime = playbackMarkerPos * audioBuffer.duration;
+                        }
+                        isDraggingPlaybackMarker = false;
+                        if (audioBuffer) {
+                            if (wasPlayingBeforeDrag) {
+                                playSelection();
+                            } else {
+                                stopAudio();
+                            }
+                        }
+                        wasPlayingBeforeDrag = false;
+                    }
                 }
                 isDragging = false;
                 currentMarker = null;
@@ -563,17 +596,34 @@
             // マウスイベント
             startMarker.addEventListener('mousedown', (e) => startDrag(startMarker, e));
             endMarker.addEventListener('mousedown', (e) => startDrag(endMarker, e));
+            playbackMarker.addEventListener('mousedown', (e) => startDrag(playbackMarker, e));
             document.addEventListener('mousemove', drag);
             document.addEventListener('mouseup', endDrag);
 
             // タッチイベント
             startMarker.addEventListener('touchstart', (e) => startDrag(startMarker, e));
             endMarker.addEventListener('touchstart', (e) => startDrag(endMarker, e));
+            playbackMarker.addEventListener('touchstart', (e) => startDrag(playbackMarker, e));
             document.addEventListener('touchmove', drag, { passive: false });
             document.addEventListener('touchend', endDrag);
 
             drawSelection();
         }
+
+        // スペースキーで再生と停止を切り替える
+        document.addEventListener('keydown', (event) => {
+            if (event.code !== 'Space' && event.key !== ' ') return;
+            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target.isContentEditable) {
+                return;
+            }
+            if (!audioBuffer) return;
+            event.preventDefault();
+            if (isPlaying) {
+                stopAudio();
+            } else {
+                playSelection();
+            }
+        });
 
         function drawSelection() {
             drawWaveform();
@@ -586,6 +636,15 @@
             // 選択範囲をハイライト
             ctx.fillStyle = 'rgba(102, 126, 234, 0.2)';
             ctx.fillRect(startX, 0, endX - startX, height);
+
+            renderPlaybackMarker();
+        }
+
+        // 再生用マーカーの描画を同期する
+        function renderPlaybackMarker() {
+            if (!audioBuffer) return;
+            const x = playbackMarkerPos * canvas.width;
+            playbackMarker.style.left = (x + 20) + 'px';
         }
 
         function updateTimeDisplay() {
@@ -593,6 +652,16 @@
             const start = startMarkerPos * duration;
             const end = endMarkerPos * duration;
             const selected = end - start;
+
+            if (playbackMarkerPos < startMarkerPos) {
+                playbackMarkerPos = startMarkerPos;
+                renderPlaybackMarker();
+            } else if (playbackMarkerPos > endMarkerPos) {
+                playbackMarkerPos = endMarkerPos;
+                renderPlaybackMarker();
+            }
+
+            pauseTime = playbackMarkerPos * duration;
 
             document.getElementById('startTime').textContent = formatTime(start);
             document.getElementById('endTime').textContent = formatTime(end);
@@ -609,19 +678,24 @@
         function stopAudio() {
             if (sourceNode) {
                 try {
+                    sourceNode.onended = null;
                     sourceNode.stop();
+                } catch (e) {}
+                try {
+                    sourceNode.disconnect();
                 } catch (e) {}
                 sourceNode = null;
             }
 
             isPlaying = false;
-            pauseTime = 0;
+            pauseTime = audioBuffer ? playbackMarkerPos * audioBuffer.duration : 0;
             startTime = 0;
-            playbackMarker.style.display = 'none';
 
             if (animationId) {
                 cancelAnimationFrame(animationId);
             }
+
+            renderPlaybackMarker();
         }
 
         function playSelection() {
@@ -632,19 +706,31 @@
             sourceNode.connect(audioContext.destination);
 
             const duration = audioBuffer.duration;
-            const start = startMarkerPos * duration;
-            const end = endMarkerPos * duration;
-            const playDuration = end - start;
+            const selectionStart = startMarkerPos * duration;
+            const selectionEnd = endMarkerPos * duration;
+            let playbackStart = playbackMarkerPos * duration;
 
-            sourceNode.start(0, start, playDuration);
-            startTime = audioContext.currentTime - start;
+            const minGap = audioBuffer.sampleRate > 0 ? (1 / audioBuffer.sampleRate) : 0.001;
+            const maxStart = Math.max(selectionStart, selectionEnd - minGap);
+            playbackStart = Math.min(Math.max(playbackStart, selectionStart), maxStart);
+
+            let playDuration = selectionEnd - playbackStart;
+            if (playDuration <= 0) {
+                playDuration = Math.max(selectionEnd - selectionStart, minGap);
+            }
+
+            sourceNode.start(0, playbackStart, playDuration);
+            startTime = audioContext.currentTime - playbackStart;
+            pauseTime = playbackStart;
+            playbackMarkerPos = playbackStart / duration;
+            renderPlaybackMarker();
             isPlaying = true;
-            playbackMarker.style.display = 'block';
 
             updateProgress();
 
             sourceNode.onended = () => {
                 stopAudio();
+                renderPlaybackMarker();
             };
         }
 
@@ -655,9 +741,11 @@
             const progress = (currentTime / audioBuffer.duration) * 100;
 
             // 再生位置マーカーを更新
-            const position = currentTime / audioBuffer.duration;
-            const x = position * canvas.width;
-            playbackMarker.style.left = (x + 20) + 'px';
+            if (!isDraggingPlaybackMarker) {
+                const position = Math.min(Math.max(currentTime / audioBuffer.duration, 0), 1);
+                playbackMarkerPos = Math.min(Math.max(position, startMarkerPos), endMarkerPos);
+                renderPlaybackMarker();
+            }
 
             if (progress < 100) {
                 animationId = requestAnimationFrame(updateProgress);
