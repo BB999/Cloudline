@@ -178,6 +178,19 @@
             background: #ef4444;
         }
 
+        #playbackMarker {
+            background: rgba(59, 130, 246, 0.8);
+            display: none;
+        }
+
+        #playbackMarker::before {
+            background: #3b82f6;
+        }
+
+        #playbackMarker::after {
+            background: #3b82f6;
+        }
+
         .controls {
             display: none;
             margin: 30px 0;
@@ -357,6 +370,7 @@
                 <canvas id="waveform"></canvas>
                 <div class="marker" id="startMarker" data-label="開始"></div>
                 <div class="marker" id="endMarker" data-label="終了"></div>
+                <div class="marker" id="playbackMarker" data-label="再生"></div>
             </div>
         </div>
 
@@ -374,10 +388,6 @@
                     <div class="time-label">選択時間</div>
                     <div class="time-value" id="duration">0:00.000</div>
                 </div>
-            </div>
-
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
             </div>
 
             <div class="control-buttons">
@@ -409,6 +419,7 @@
         const ctx = canvas.getContext('2d');
         const startMarker = document.getElementById('startMarker');
         const endMarker = document.getElementById('endMarker');
+        const playbackMarker = document.getElementById('playbackMarker');
 
         // ドラッグ&ドロップ
         uploadSection.addEventListener('dragover', (e) => {
@@ -606,7 +617,7 @@
             isPlaying = false;
             pauseTime = 0;
             startTime = 0;
-            document.getElementById('progressFill').style.width = '0%';
+            playbackMarker.style.display = 'none';
 
             if (animationId) {
                 cancelAnimationFrame(animationId);
@@ -628,6 +639,7 @@
             sourceNode.start(0, start, playDuration);
             startTime = audioContext.currentTime - start;
             isPlaying = true;
+            playbackMarker.style.display = 'block';
 
             updateProgress();
 
@@ -641,7 +653,11 @@
 
             const currentTime = audioContext.currentTime - startTime;
             const progress = (currentTime / audioBuffer.duration) * 100;
-            document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
+
+            // 再生位置マーカーを更新
+            const position = currentTime / audioBuffer.duration;
+            const x = position * canvas.width;
+            playbackMarker.style.left = (x + 20) + 'px';
 
             if (progress < 100) {
                 animationId = requestAnimationFrame(updateProgress);
