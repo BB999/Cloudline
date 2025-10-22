@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>剣戟アクション - Sword Fighter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            font-weight: bold;
+        }
+
+        .health-bar-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+        }
+
+        .health-bar-label {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .health-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid #fff;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+
+        .health-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff6666);
+            transition: width 0.3s ease;
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        #combo {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffff00;
+            font-size: 60px;
+            font-weight: bold;
+            text-shadow: 0 0 20px #ff0000, 2px 2px 4px rgba(0, 0, 0, 0.8);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+
+        #startScreen h1 {
+            font-size: 72px;
+            color: #fff;
+            text-shadow: 0 0 30px #ff0000, 0 0 60px #ff0000;
+            margin-bottom: 20px;
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { text-shadow: 0 0 30px #ff0000, 0 0 60px #ff0000; }
+            50% { text-shadow: 0 0 50px #ff0000, 0 0 100px #ff0000; }
+        }
+
+        #startScreen .subtitle {
+            font-size: 24px;
+            color: #aaa;
+            margin-bottom: 40px;
+        }
+
+        #startButton {
+            padding: 20px 60px;
+            font-size: 32px;
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(255, 0, 0, 0.5);
+            transition: all 0.3s;
+            pointer-events: all;
+        }
+
+        #startButton:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(255, 0, 0, 0.7);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            color: #fff;
+            text-align: center;
+            width: 100%;
+        }
+
+        .controls p {
+            margin: 10px 0;
+            font-size: 18px;
+            opacity: 0.8;
+        }
+
+        #gameOver {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+
+        #gameOver h2 {
+            font-size: 72px;
+            color: #ff0000;
+            text-shadow: 0 0 30px #ff0000;
+            margin-bottom: 20px;
+        }
+
+        #gameOver .score {
+            font-size: 36px;
+            color: #fff;
+            margin-bottom: 40px;
+        }
+
+        #restartButton {
+            padding: 15px 50px;
+            font-size: 24px;
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(255, 0, 0, 0.5);
+            transition: all 0.3s;
+        }
+
+        #restartButton:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(255, 0, 0, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui">
+        <div id="hud">
+            <div>スコア: <span id="score">0</span></div>
+            <div>撃破数: <span id="kills">0</span></div>
+        </div>
+
+        <div class="health-bar-container">
+            <div class="health-bar-label">HP</div>
+            <div class="health-bar">
+                <div class="health-bar-fill" id="healthBar" style="width: 100%;"></div>
+            </div>
+        </div>
+
+        <div id="combo"></div>
+    </div>
+
+    <div id="startScreen">
+        <h1>⚔️ 剣戟アクション ⚔️</h1>
+        <p class="subtitle">敵を倒して高スコアを目指せ！</p>
+        <button id="startButton">ゲーム開始</button>
+        <div class="controls">
+            <p>🎮 操作方法</p>
+            <p>← → : 移動 | SPACE : ジャンプ | Z : 攻撃</p>
+        </div>
+    </div>
+
+    <div id="gameOver">
+        <h2>GAME OVER</h2>
+        <div class="score">最終スコア: <span id="finalScore">0</span></div>
+        <button id="restartButton">再挑戦</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ゲーム状態
+        const gameState = {
+            running: false,
+            score: 0,
+            kills: 0,
+            playerHealth: 100,
+            combo: 0,
+            comboTimer: 0,
+            enemies: [],
+            particles: [],
+            backgroundLayers: []
+        };
+
+        // キー入力
+        const keys = {};
+        window.addEventListener('keydown', (e) => keys[e.key] = true);
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        // シーン設定
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x1a1a2e, 20, 100);
+
+        // カメラ設定
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 5, 15);
+        camera.lookAt(0, 3, 0);
+
+        // レンダラー設定
+        const canvas = document.getElementById('gameCanvas');
+        const renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            powerPreference: 'high-performance'
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setClearColor(0x1a1a2e);
+
+        // ライティング
+        const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(5, 10, 5);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.left = -20;
+        dirLight.shadow.camera.right = 20;
+        dirLight.shadow.camera.top = 20;
+        dirLight.shadow.camera.bottom = -20;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        // ポイントライト（動的）
+        const playerLight = new THREE.PointLight(0x4466ff, 1, 20);
+        playerLight.position.set(0, 3, 0);
+        scene.add(playerLight);
+
+        // 地面
+        const groundGeometry = new THREE.PlaneGeometry(200, 50);
+        const groundMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a3e,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // グリッドライン
+        for (let i = -25; i <= 25; i += 5) {
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x444466 });
+            const lineGeo1 = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-100, 0.01, i),
+                new THREE.Vector3(100, 0.01, i)
+            ]);
+            const lineGeo2 = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(i, 0.01, -25),
+                new THREE.Vector3(i, 0.01, 25)
+            ]);
+            scene.add(new THREE.Line(lineGeo1, lineMat));
+            scene.add(new THREE.Line(lineGeo2, lineMat));
+        }
+
+        // 背景レイヤー（視差効果）
+        function createBackgroundLayer(color, z, count, speed) {
+            const layer = { objects: [], speed, z };
+            for (let i = 0; i < count; i++) {
+                const geometry = new THREE.BoxGeometry(
+                    Math.random() * 2 + 1,
+                    Math.random() * 5 + 3,
+                    Math.random() * 2 + 1
+                );
+                const material = new THREE.MeshStandardMaterial({
+                    color,
+                    emissive: color,
+                    emissiveIntensity: 0.2
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(
+                    Math.random() * 100 - 50,
+                    mesh.geometry.parameters.height / 2,
+                    z + Math.random() * 5 - 2.5
+                );
+                mesh.receiveShadow = true;
+                mesh.castShadow = true;
+                scene.add(mesh);
+                layer.objects.push(mesh);
+            }
+            gameState.backgroundLayers.push(layer);
+        }
+
+        createBackgroundLayer(0x3a3a5e, -15, 15, 0.02);
+        createBackgroundLayer(0x2a2a4e, -25, 10, 0.01);
+
+        // プレイヤー作成
+        class Player {
+            constructor() {
+                this.group = new THREE.Group();
+
+                // 体
+                const bodyGeometry = new THREE.BoxGeometry(1, 2, 0.5);
+                const bodyMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x3366ff,
+                    emissive: 0x1144aa,
+                    emissiveIntensity: 0.3
+                });
+                this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.body.position.y = 1;
+                this.body.castShadow = true;
+                this.group.add(this.body);
+
+                // 頭
+                const headGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+                const headMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xffddaa
+                });
+                this.head = new THREE.Mesh(headGeometry, headMaterial);
+                this.head.position.y = 2.4;
+                this.head.castShadow = true;
+                this.group.add(this.head);
+
+                // 剣
+                const swordGroup = new THREE.Group();
+                const bladeGeometry = new THREE.BoxGeometry(0.1, 2, 0.1);
+                const bladeMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xcccccc,
+                    emissive: 0x88ccff,
+                    emissiveIntensity: 0.5,
+                    metalness: 0.9,
+                    roughness: 0.1
+                });
+                const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
+                blade.position.y = 1;
+                blade.castShadow = true;
+                swordGroup.add(blade);
+
+                const handleGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.5);
+                const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+                const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+                handle.position.y = -0.25;
+                swordGroup.add(handle);
+
+                swordGroup.position.set(0.7, 1.5, 0);
+                swordGroup.rotation.z = -Math.PI / 4;
+                this.sword = swordGroup;
+                this.group.add(this.sword);
+
+                this.group.position.set(-8, 0, 0);
+                scene.add(this.group);
+
+                this.velocity = new THREE.Vector3();
+                this.onGround = false;
+                this.attacking = false;
+                this.attackCooldown = 0;
+            }
+
+            update(deltaTime) {
+                // 移動
+                const moveSpeed = 8;
+                if (keys['ArrowLeft'] || keys['a']) {
+                    this.velocity.x = -moveSpeed * deltaTime;
+                    this.group.rotation.y = Math.PI / 2;
+                } else if (keys['ArrowRight'] || keys['d']) {
+                    this.velocity.x = moveSpeed * deltaTime;
+                    this.group.rotation.y = -Math.PI / 2;
+                } else {
+                    this.velocity.x *= 0.8;
+                }
+
+                // ジャンプ
+                if ((keys[' '] || keys['ArrowUp'] || keys['w']) && this.onGround) {
+                    this.velocity.y = 12;
+                    this.onGround = false;
+                }
+
+                // 重力
+                this.velocity.y -= 30 * deltaTime;
+
+                // 位置更新
+                this.group.position.x += this.velocity.x;
+                this.group.position.y += this.velocity.y * deltaTime;
+
+                // 地面判定
+                if (this.group.position.y <= 0) {
+                    this.group.position.y = 0;
+                    this.velocity.y = 0;
+                    this.onGround = true;
+                }
+
+                // 画面端制限
+                this.group.position.x = Math.max(-10, Math.min(10, this.group.position.x));
+
+                // 攻撃
+                if (this.attackCooldown > 0) {
+                    this.attackCooldown -= deltaTime;
+                }
+
+                if ((keys['z'] || keys['x']) && this.attackCooldown <= 0 && !this.attacking) {
+                    this.attack();
+                }
+
+                // 剣のアニメーション
+                if (this.attacking) {
+                    this.sword.rotation.z = Math.sin(Date.now() * 0.05) * Math.PI;
+                } else {
+                    this.sword.rotation.z += ((-Math.PI / 4) - this.sword.rotation.z) * 0.1;
+                }
+
+                // ライト追従
+                playerLight.position.copy(this.group.position);
+                playerLight.position.y += 3;
+            }
+
+            attack() {
+                this.attacking = true;
+                this.attackCooldown = 0.4;
+
+                // 斬撃エフェクト
+                createSlashEffect(this.group.position, this.group.rotation.y);
+
+                // 攻撃判定
+                gameState.enemies.forEach(enemy => {
+                    const distance = this.group.position.distanceTo(enemy.group.position);
+                    if (distance < 3) {
+                        enemy.takeDamage(34);
+                    }
+                });
+
+                setTimeout(() => {
+                    this.attacking = false;
+                }, 200);
+            }
+
+            takeDamage(amount) {
+                gameState.playerHealth = Math.max(0, gameState.playerHealth - amount);
+                updateHealthBar();
+
+                // ダメージエフェクト
+                this.body.material.emissiveIntensity = 1;
+                setTimeout(() => {
+                    this.body.material.emissiveIntensity = 0.3;
+                }, 100);
+
+                if (gameState.playerHealth <= 0) {
+                    gameOver();
+                }
+            }
+        }
+
+        // 敵クラス
+        class Enemy {
+            constructor(x, z) {
+                this.group = new THREE.Group();
+
+                const bodyGeometry = new THREE.BoxGeometry(1, 1.5, 0.8);
+                const bodyMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xff3333,
+                    emissive: 0xaa1111,
+                    emissiveIntensity: 0.5
+                });
+                this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.body.position.y = 0.75;
+                this.body.castShadow = true;
+                this.group.add(this.body);
+
+                const headGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+                const headMaterial = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
+                this.head = new THREE.Mesh(headGeometry, headMaterial);
+                this.head.position.y = 1.85;
+                this.head.castShadow = true;
+                this.group.add(this.head);
+
+                this.group.position.set(x, 0, z);
+                scene.add(this.group);
+
+                this.health = 100;
+                this.speed = 2 + Math.random();
+                this.attackCooldown = 0;
+            }
+
+            update(deltaTime) {
+                if (!player) return;
+
+                // プレイヤーに向かって移動
+                const direction = new THREE.Vector3();
+                direction.subVectors(player.group.position, this.group.position);
+                direction.y = 0;
+                direction.normalize();
+
+                this.group.position.add(direction.multiplyScalar(this.speed * deltaTime));
+
+                // プレイヤーの方を向く
+                this.group.lookAt(player.group.position);
+
+                // 攻撃判定
+                const distance = this.group.position.distanceTo(player.group.position);
+                if (distance < 2 && this.attackCooldown <= 0) {
+                    player.takeDamage(5);
+                    this.attackCooldown = 1.5;
+
+                    // 攻撃エフェクト
+                    this.body.material.emissiveIntensity = 1;
+                    setTimeout(() => {
+                        this.body.material.emissiveIntensity = 0.5;
+                    }, 100);
+                }
+
+                if (this.attackCooldown > 0) {
+                    this.attackCooldown -= deltaTime;
+                }
+
+                // 画面外に出たら削除
+                if (this.group.position.x < -20) {
+                    this.destroy();
+                }
+            }
+
+            takeDamage(amount) {
+                this.health -= amount;
+
+                // ヒットエフェクト
+                createHitEffect(this.group.position);
+                this.body.material.emissiveIntensity = 1;
+                setTimeout(() => {
+                    this.body.material.emissiveIntensity = 0.5;
+                }, 50);
+
+                if (this.health <= 0) {
+                    this.die();
+                }
+            }
+
+            die() {
+                gameState.score += 100;
+                gameState.kills++;
+                gameState.combo++;
+                gameState.comboTimer = 3;
+
+                updateScore();
+                updateCombo();
+
+                // 爆発エフェクト
+                createExplosionEffect(this.group.position);
+
+                this.destroy();
+            }
+
+            destroy() {
+                scene.remove(this.group);
+                const index = gameState.enemies.indexOf(this);
+                if (index > -1) {
+                    gameState.enemies.splice(index, 1);
+                }
+            }
+        }
+
+        // パーティクルエフェクト
+        function createSlashEffect(position, rotation) {
+            const particleCount = 20;
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            const velocities = [];
+
+            for (let i = 0; i < particleCount; i++) {
+                positions.push(
+                    position.x + (Math.random() - 0.5) * 2,
+                    position.y + 1 + Math.random() * 2,
+                    position.z + (Math.random() - 0.5)
+                );
+
+                colors.push(0.5 + Math.random() * 0.5, 0.7 + Math.random() * 0.3, 1);
+
+                const angle = rotation + (Math.random() - 0.5) * Math.PI / 2;
+                velocities.push(
+                    Math.cos(angle) * (5 + Math.random() * 5),
+                    Math.random() * 3,
+                    (Math.random() - 0.5) * 2
+                );
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.3,
+                vertexColors: true,
+                transparent: true,
+                opacity: 1,
+                blending: THREE.AdditiveBlending
+            });
+
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            gameState.particles.push({
+                mesh: particles,
+                velocities: velocities,
+                life: 1,
+                type: 'slash'
+            });
+        }
+
+        function createHitEffect(position) {
+            const particleCount = 15;
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            const velocities = [];
+
+            for (let i = 0; i < particleCount; i++) {
+                positions.push(
+                    position.x,
+                    position.y + 1,
+                    position.z
+                );
+
+                colors.push(1, 0.3 + Math.random() * 0.3, 0);
+
+                velocities.push(
+                    (Math.random() - 0.5) * 8,
+                    Math.random() * 5,
+                    (Math.random() - 0.5) * 8
+                );
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.4,
+                vertexColors: true,
+                transparent: true,
+                opacity: 1,
+                blending: THREE.AdditiveBlending
+            });
+
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            gameState.particles.push({
+                mesh: particles,
+                velocities: velocities,
+                life: 0.8,
+                type: 'hit'
+            });
+        }
+
+        function createExplosionEffect(position) {
+            const particleCount = 30;
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            const velocities = [];
+
+            for (let i = 0; i < particleCount; i++) {
+                positions.push(
+                    position.x,
+                    position.y + 1,
+                    position.z
+                );
+
+                const t = Math.random();
+                colors.push(1, 0.5 * (1 - t), 0);
+
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                const speed = 5 + Math.random() * 5;
+
+                velocities.push(
+                    Math.sin(phi) * Math.cos(theta) * speed,
+                    Math.sin(phi) * Math.sin(theta) * speed,
+                    Math.cos(phi) * speed
+                );
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.5,
+                vertexColors: true,
+                transparent: true,
+                opacity: 1,
+                blending: THREE.AdditiveBlending
+            });
+
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            gameState.particles.push({
+                mesh: particles,
+                velocities: velocities,
+                life: 1.2,
+                type: 'explosion'
+            });
+
+            // フラッシュライト
+            const flashLight = new THREE.PointLight(0xff6600, 3, 15);
+            flashLight.position.copy(position);
+            scene.add(flashLight);
+            setTimeout(() => scene.remove(flashLight), 200);
+        }
+
+        function updateParticles(deltaTime) {
+            for (let i = gameState.particles.length - 1; i >= 0; i--) {
+                const particle = gameState.particles[i];
+                particle.life -= deltaTime;
+
+                if (particle.life <= 0) {
+                    scene.remove(particle.mesh);
+                    gameState.particles.splice(i, 1);
+                    continue;
+                }
+
+                const positions = particle.mesh.geometry.attributes.position.array;
+                for (let j = 0; j < positions.length; j += 3) {
+                    positions[j] += particle.velocities[j] * deltaTime;
+                    positions[j + 1] += particle.velocities[j + 1] * deltaTime;
+                    positions[j + 2] += particle.velocities[j + 2] * deltaTime;
+
+                    particle.velocities[j + 1] -= 15 * deltaTime; // 重力
+                    particle.velocities[j] *= 0.98;
+                    particle.velocities[j + 2] *= 0.98;
+                }
+
+                particle.mesh.geometry.attributes.position.needsUpdate = true;
+                particle.mesh.material.opacity = particle.life;
+            }
+        }
+
+        // 敵スポーン
+        let spawnTimer = 0;
+        function spawnEnemy() {
+            const x = 15;
+            const z = (Math.random() - 0.5) * 6;
+            const enemy = new Enemy(x, z);
+            gameState.enemies.push(enemy);
+        }
+
+        // UI更新
+        function updateScore() {
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('kills').textContent = gameState.kills;
+        }
+
+        function updateHealthBar() {
+            const healthPercent = Math.max(0, gameState.playerHealth);
+            document.getElementById('healthBar').style.width = healthPercent + '%';
+        }
+
+        function updateCombo() {
+            const comboEl = document.getElementById('combo');
+            if (gameState.combo > 1) {
+                comboEl.textContent = `${gameState.combo} COMBO!`;
+                comboEl.style.opacity = '1';
+                comboEl.style.transform = 'translate(-50%, -50%) scale(1.2)';
+                setTimeout(() => {
+                    comboEl.style.transform = 'translate(-50%, -50%) scale(1)';
+                }, 100);
+            } else {
+                comboEl.style.opacity = '0';
+            }
+        }
+
+        // ゲームオーバー
+        function gameOver() {
+            gameState.running = false;
+            document.getElementById('finalScore').textContent = gameState.score;
+            document.getElementById('gameOver').style.display = 'flex';
+        }
+
+        // ゲーム開始
+        function startGame() {
+            gameState.running = true;
+            gameState.score = 0;
+            gameState.kills = 0;
+            gameState.playerHealth = 100;
+            gameState.combo = 0;
+            gameState.comboTimer = 0;
+
+            // 既存の敵を削除
+            gameState.enemies.forEach(enemy => enemy.destroy());
+            gameState.enemies = [];
+
+            // パーティクルを削除
+            gameState.particles.forEach(p => scene.remove(p.mesh));
+            gameState.particles = [];
+
+            updateScore();
+            updateHealthBar();
+            updateCombo();
+
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+
+            if (!player) {
+                player = new Player();
+            } else {
+                player.group.position.set(-8, 0, 0);
+                player.velocity.set(0, 0, 0);
+            }
+        }
+
+        // イベントリスナー
+        document.getElementById('startButton').addEventListener('click', startGame);
+        document.getElementById('restartButton').addEventListener('click', startGame);
+
+        // プレイヤーインスタンス
+        let player = null;
+
+        // アニメーションループ
+        let lastTime = performance.now();
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const currentTime = performance.now();
+            const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+
+            if (gameState.running) {
+                // プレイヤー更新
+                if (player) {
+                    player.update(deltaTime);
+                }
+
+                // 敵更新
+                gameState.enemies.forEach(enemy => enemy.update(deltaTime));
+
+                // 敵スポーン
+                spawnTimer += deltaTime;
+                if (spawnTimer > 2 - Math.min(gameState.kills * 0.02, 1.5)) {
+                    spawnEnemy();
+                    spawnTimer = 0;
+                }
+
+                // パーティクル更新
+                updateParticles(deltaTime);
+
+                // コンボタイマー
+                if (gameState.comboTimer > 0) {
+                    gameState.comboTimer -= deltaTime;
+                    if (gameState.comboTimer <= 0) {
+                        gameState.combo = 0;
+                        updateCombo();
+                    }
+                }
+
+                // 背景スクロール
+                gameState.backgroundLayers.forEach(layer => {
+                    layer.objects.forEach(obj => {
+                        obj.position.x -= layer.speed;
+                        if (obj.position.x < -60) {
+                            obj.position.x = 60;
+                        }
+                    });
+                });
+
+                // カメラシェイク（攻撃時）
+                if (player && player.attacking) {
+                    camera.position.x += (Math.random() - 0.5) * 0.1;
+                    camera.position.y += (Math.random() - 0.5) * 0.1;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // リサイズ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // アニメーション開始
+        animate();
+    </script>
+</body>
+</html>
