@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3オーディオカッター</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 1.1em;
+            transition: transform 0.2s;
+        }
+
+        .back-link:hover {
+            transform: translateX(-5px);
+        }
+
+        .upload-section {
+            text-align: center;
+            padding: 40px;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-section:hover {
+            background: #f8f9ff;
+            border-color: #764ba2;
+        }
+
+        .upload-section.dragover {
+            background: #e8ebff;
+            border-color: #764ba2;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .upload-button:hover {
+            transform: scale(1.05);
+        }
+
+        .file-info {
+            margin-top: 15px;
+            font-size: 1.1em;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .waveform-container {
+            display: none;
+            margin: 30px 0;
+        }
+
+        .waveform-wrapper {
+            position: relative;
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        #waveform {
+            width: 100%;
+            height: 200px;
+            display: block;
+            cursor: crosshair;
+            border-radius: 5px;
+        }
+
+        .marker {
+            position: absolute;
+            top: 20px;
+            width: 3px;
+            height: 200px;
+            cursor: ew-resize;
+            z-index: 10;
+        }
+
+        .marker::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: grab;
+        }
+
+        .marker::after {
+            content: attr(data-label);
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            color: white;
+            white-space: nowrap;
+            font-weight: bold;
+        }
+
+        .marker.dragging::before {
+            cursor: grabbing;
+        }
+
+        #startMarker {
+            background: rgba(34, 197, 94, 0.7);
+        }
+
+        #startMarker::before {
+            background: #22c55e;
+        }
+
+        #startMarker::after {
+            background: #22c55e;
+        }
+
+        #endMarker {
+            background: rgba(239, 68, 68, 0.7);
+        }
+
+        #endMarker::before {
+            background: #ef4444;
+        }
+
+        #endMarker::after {
+            background: #ef4444;
+        }
+
+        .controls {
+            display: none;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .control-button {
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .control-button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .control-button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .control-button.primary:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .time-item {
+            text-align: center;
+        }
+
+        .time-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .time-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e7ff;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .instructions {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        .instructions h3 {
+            color: #d97706;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .control-buttons {
+                flex-direction: column;
+            }
+
+            .control-button {
+                width: 100%;
+            }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back-link">← ポータルに戻る</a>
+
+        <h1>🎵 MP3オーディオカッター</h1>
+
+        <div class="instructions">
+            <h3>使い方</h3>
+            <ul>
+                <li>MP3ファイルをアップロードまたはドラッグ&ドロップ</li>
+                <li>波形が表示されたら、緑と赤のマーカーをドラッグして切り取り範囲を指定</li>
+                <li>再生ボタンで選択範囲を確認</li>
+                <li>「カット範囲をダウンロード」で切り取ったファイルを保存</li>
+            </ul>
+        </div>
+
+        <div class="upload-section" id="uploadSection">
+            <input type="file" id="fileInput" accept="audio/mpeg,audio/mp3">
+            <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+                📁 MP3ファイルを選択
+            </button>
+            <div class="file-info" id="fileInfo"></div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>波形を読み込み中...</div>
+        </div>
+
+        <div class="waveform-container" id="waveformContainer">
+            <div class="waveform-wrapper">
+                <canvas id="waveform"></canvas>
+                <div class="marker" id="startMarker" data-label="開始"></div>
+                <div class="marker" id="endMarker" data-label="終了"></div>
+            </div>
+        </div>
+
+        <div class="controls" id="controls">
+            <div class="time-display">
+                <div class="time-item">
+                    <div class="time-label">開始時間</div>
+                    <div class="time-value" id="startTime">0:00.000</div>
+                </div>
+                <div class="time-item">
+                    <div class="time-label">終了時間</div>
+                    <div class="time-value" id="endTime">0:00.000</div>
+                </div>
+                <div class="time-item">
+                    <div class="time-label">選択時間</div>
+                    <div class="time-value" id="duration">0:00.000</div>
+                </div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="control-buttons">
+                <button class="control-button" id="playBtn" onclick="togglePlay()">▶ 再生</button>
+                <button class="control-button" id="playSelectionBtn" onclick="playSelection()">▶ 選択範囲を再生</button>
+                <button class="control-button" id="stopBtn" onclick="stopAudio()">⏹ 停止</button>
+                <button class="control-button primary" onclick="exportAudio()">⬇ カット範囲をダウンロード</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioContext;
+        let audioBuffer;
+        let sourceNode;
+        let startTime = 0;
+        let pauseTime = 0;
+        let isPlaying = false;
+        let animationId;
+        let startMarkerPos = 0;
+        let endMarkerPos = 1;
+
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInfo = document.getElementById('fileInfo');
+        const loading = document.getElementById('loading');
+        const waveformContainer = document.getElementById('waveformContainer');
+        const controls = document.getElementById('controls');
+        const canvas = document.getElementById('waveform');
+        const ctx = canvas.getContext('2d');
+        const startMarker = document.getElementById('startMarker');
+        const endMarker = document.getElementById('endMarker');
+        const playBtn = document.getElementById('playBtn');
+
+        // ドラッグ&ドロップ
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.includes('audio')) {
+                handleFile(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        async function handleFile(file) {
+            fileInfo.textContent = `選択: ${file.name}`;
+            loading.style.display = 'block';
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const arrayBuffer = await file.arrayBuffer();
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+                drawWaveform();
+                setupMarkers();
+
+                waveformContainer.style.display = 'block';
+                controls.style.display = 'block';
+                loading.style.display = 'none';
+
+                updateTimeDisplay();
+            } catch (error) {
+                console.error('Error loading audio:', error);
+                alert('オーディオファイルの読み込みに失敗しました');
+                loading.style.display = 'none';
+            }
+        }
+
+        function drawWaveform() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+
+            const data = audioBuffer.getChannelData(0);
+            const step = Math.ceil(data.length / width);
+            const amp = height / 2;
+
+            ctx.fillStyle = '#e0e7ff';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.fillStyle = '#667eea';
+            ctx.beginPath();
+
+            for (let i = 0; i < width; i++) {
+                let min = 1.0;
+                let max = -1.0;
+
+                for (let j = 0; j < step; j++) {
+                    const datum = data[(i * step) + j];
+                    if (datum < min) min = datum;
+                    if (datum > max) max = datum;
+                }
+
+                const yMin = (1 + min) * amp;
+                const yMax = (1 + max) * amp;
+
+                ctx.fillRect(i, yMin, 1, yMax - yMin);
+            }
+        }
+
+        function setupMarkers() {
+            const waveformWrapper = canvas.parentElement;
+            const width = canvas.clientWidth;
+
+            // 初期位置設定
+            startMarker.style.left = '20px';
+            endMarker.style.left = (width + 20 - 3) + 'px';
+
+            startMarkerPos = 0;
+            endMarkerPos = 1;
+
+            // マーカーのドラッグ機能
+            let isDragging = false;
+            let currentMarker = null;
+
+            function startDrag(marker, e) {
+                isDragging = true;
+                currentMarker = marker;
+                marker.classList.add('dragging');
+                e.preventDefault();
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+
+                const rect = waveformWrapper.getBoundingClientRect();
+                const x = (e.type.includes('touch') ? e.touches[0].clientX : e.clientX) - rect.left - 20;
+                const clampedX = Math.max(0, Math.min(x, canvas.clientWidth - 3));
+
+                if (currentMarker === startMarker) {
+                    const endPos = parseFloat(endMarker.style.left);
+                    if (clampedX < endPos - 20) {
+                        currentMarker.style.left = (clampedX + 20) + 'px';
+                        startMarkerPos = clampedX / canvas.clientWidth;
+                    }
+                } else {
+                    const startPos = parseFloat(startMarker.style.left);
+                    if (clampedX + 20 > startPos) {
+                        currentMarker.style.left = (clampedX + 20) + 'px';
+                        endMarkerPos = clampedX / canvas.clientWidth;
+                    }
+                }
+
+                updateTimeDisplay();
+                drawSelection();
+            }
+
+            function endDrag() {
+                if (isDragging && currentMarker) {
+                    currentMarker.classList.remove('dragging');
+                }
+                isDragging = false;
+                currentMarker = null;
+            }
+
+            // マウスイベント
+            startMarker.addEventListener('mousedown', (e) => startDrag(startMarker, e));
+            endMarker.addEventListener('mousedown', (e) => startDrag(endMarker, e));
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+
+            // タッチイベント
+            startMarker.addEventListener('touchstart', (e) => startDrag(startMarker, e));
+            endMarker.addEventListener('touchstart', (e) => startDrag(endMarker, e));
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('touchend', endDrag);
+
+            drawSelection();
+        }
+
+        function drawSelection() {
+            drawWaveform();
+
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            const startX = startMarkerPos * width;
+            const endX = endMarkerPos * width;
+
+            // 選択範囲をハイライト
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.2)';
+            ctx.fillRect(startX, 0, endX - startX, height);
+        }
+
+        function updateTimeDisplay() {
+            const duration = audioBuffer.duration;
+            const start = startMarkerPos * duration;
+            const end = endMarkerPos * duration;
+            const selected = end - start;
+
+            document.getElementById('startTime').textContent = formatTime(start);
+            document.getElementById('endTime').textContent = formatTime(end);
+            document.getElementById('duration').textContent = formatTime(selected);
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                pauseAudio();
+            } else {
+                playAudio();
+            }
+        }
+
+        function playAudio() {
+            if (isPlaying) return;
+
+            stopAudio();
+
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            sourceNode.connect(audioContext.destination);
+
+            const offset = pauseTime || 0;
+            sourceNode.start(0, offset);
+            startTime = audioContext.currentTime - offset;
+            isPlaying = true;
+            playBtn.textContent = '⏸ 一時停止';
+
+            updateProgress();
+
+            sourceNode.onended = () => {
+                if (isPlaying) {
+                    stopAudio();
+                }
+            };
+        }
+
+        function pauseAudio() {
+            if (!isPlaying) return;
+
+            sourceNode.stop();
+            pauseTime = audioContext.currentTime - startTime;
+            isPlaying = false;
+            playBtn.textContent = '▶ 再生';
+
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function stopAudio() {
+            if (sourceNode) {
+                try {
+                    sourceNode.stop();
+                } catch (e) {}
+                sourceNode = null;
+            }
+
+            isPlaying = false;
+            pauseTime = 0;
+            startTime = 0;
+            playBtn.textContent = '▶ 再生';
+            document.getElementById('progressFill').style.width = '0%';
+
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function playSelection() {
+            stopAudio();
+
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            sourceNode.connect(audioContext.destination);
+
+            const duration = audioBuffer.duration;
+            const start = startMarkerPos * duration;
+            const end = endMarkerPos * duration;
+            const playDuration = end - start;
+
+            sourceNode.start(0, start, playDuration);
+            startTime = audioContext.currentTime - start;
+            isPlaying = true;
+            playBtn.textContent = '⏸ 一時停止';
+
+            updateProgress();
+
+            sourceNode.onended = () => {
+                stopAudio();
+            };
+        }
+
+        function updateProgress() {
+            if (!isPlaying) return;
+
+            const currentTime = audioContext.currentTime - startTime;
+            const progress = (currentTime / audioBuffer.duration) * 100;
+            document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
+
+            if (progress < 100) {
+                animationId = requestAnimationFrame(updateProgress);
+            }
+        }
+
+        async function exportAudio() {
+            const duration = audioBuffer.duration;
+            const start = startMarkerPos * duration;
+            const end = endMarkerPos * duration;
+            const selectedDuration = end - start;
+
+            const startSample = Math.floor(start * audioBuffer.sampleRate);
+            const endSample = Math.floor(end * audioBuffer.sampleRate);
+            const length = endSample - startSample;
+
+            const numberOfChannels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
+
+            const newBuffer = audioContext.createBuffer(numberOfChannels, length, sampleRate);
+
+            for (let channel = 0; channel < numberOfChannels; channel++) {
+                const oldData = audioBuffer.getChannelData(channel);
+                const newData = newBuffer.getChannelData(channel);
+                for (let i = 0; i < length; i++) {
+                    newData[i] = oldData[startSample + i];
+                }
+            }
+
+            // WAVファイルとしてエクスポート
+            const wav = audioBufferToWav(newBuffer);
+            const blob = new Blob([wav], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cut_audio_${Date.now()}.wav`;
+            a.click();
+
+            URL.revokeObjectURL(url);
+        }
+
+        function audioBufferToWav(buffer) {
+            const numberOfChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; // PCM
+            const bitDepth = 16;
+
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numberOfChannels * bytesPerSample;
+
+            const data = interleave(buffer);
+            const dataLength = data.length * bytesPerSample;
+            const headerLength = 44;
+            const totalLength = headerLength + dataLength;
+
+            const arrayBuffer = new ArrayBuffer(totalLength);
+            const view = new DataView(arrayBuffer);
+
+            // WAVヘッダー
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, totalLength - 8, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, format, true);
+            view.setUint16(22, numberOfChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataLength, true);
+
+            // データ
+            let offset = 44;
+            for (let i = 0; i < data.length; i++) {
+                const sample = Math.max(-1, Math.min(1, data[i]));
+                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                offset += 2;
+            }
+
+            return arrayBuffer;
+        }
+
+        function interleave(buffer) {
+            const numberOfChannels = buffer.numberOfChannels;
+            const length = buffer.length;
+            const result = new Float32Array(length * numberOfChannels);
+
+            for (let i = 0; i < length; i++) {
+                for (let channel = 0; channel < numberOfChannels; channel++) {
+                    result[i * numberOfChannels + channel] = buffer.getChannelData(channel)[i];
+                }
+            }
+
+            return result;
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+    </script>
+</body>
+</html>
