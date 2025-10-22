@@ -538,11 +538,16 @@
                 .sort((a, b) => a[0].localeCompare(b[0]));
 
             if (filteredRates.length === 0) {
-                ratesContainer.innerHTML = `
-                    <div class="error">
-                        🔍 「${filter}」に一致する通貨が見つかりませんでした
-                    </div>
-                `;
+                ratesContainer.innerHTML = '';
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                const icon = document.createTextNode('🔍 「');
+                const filterText = document.createTextNode(filter);
+                const suffix = document.createTextNode('」に一致する通貨が見つかりませんでした');
+                errorDiv.appendChild(icon);
+                errorDiv.appendChild(filterText);
+                errorDiv.appendChild(suffix);
+                ratesContainer.appendChild(errorDiv);
                 return;
             }
 
