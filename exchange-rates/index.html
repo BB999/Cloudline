@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>為替レート - Exchange Rates</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'メイリオ', Meiryo, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: white;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            transition: background 0.3s ease;
+        }
+
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin-bottom: 2rem;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            align-items: center;
+        }
+
+        .currency-select {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .currency-select label {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .currency-select select {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+            min-width: 200px;
+        }
+
+        .currency-select select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .refresh-btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .refresh-btn:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .last-updated {
+            text-align: center;
+            color: #718096;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-box {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .rates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .rate-card {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .rate-card:hover {
+            transform: translateY(-4px);
+            border-color: #667eea;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .rate-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .currency-flag {
+            font-size: 2rem;
+        }
+
+        .currency-info {
+            flex: 1;
+        }
+
+        .currency-code {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 0.25rem;
+        }
+
+        .currency-name {
+            font-size: 0.85rem;
+            color: #718096;
+        }
+
+        .rate-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .rate-change {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .rate-change.positive {
+            color: #10b981;
+        }
+
+        .rate-change.negative {
+            color: #ef4444;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #667eea;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .error {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 2px solid #ef4444;
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            color: #dc2626;
+            font-weight: 600;
+            margin: 2rem 0;
+        }
+
+        .converter {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .converter h3 {
+            color: #92400e;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .converter-inputs {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .converter-input {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .converter-input input {
+            padding: 0.75rem;
+            border: 2px solid #fbbf24;
+            border-radius: 8px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .converter-input input:focus {
+            outline: none;
+            border-color: #f59e0b;
+        }
+
+        .converter-arrow {
+            font-size: 1.5rem;
+            color: #92400e;
+            padding-bottom: 0.75rem;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            color: white;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .rates-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .converter-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .converter-arrow {
+                transform: rotate(90deg);
+                padding: 0;
+            }
+
+            body {
+                padding: 1rem;
+            }
+
+            .main-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="../index.html" class="back-link">← 一覧に戻る</a>
+            <h1>💱 為替レート</h1>
+        </header>
+
+        <div class="main-card">
+            <div class="controls">
+                <div class="currency-select">
+                    <label for="baseCurrency">基準通貨:</label>
+                    <select id="baseCurrency">
+                        <option value="USD">USD - 米ドル</option>
+                        <option value="JPY" selected>JPY - 日本円</option>
+                        <option value="EUR">EUR - ユーロ</option>
+                        <option value="GBP">GBP - 英ポンド</option>
+                        <option value="CNY">CNY - 中国元</option>
+                        <option value="KRW">KRW - 韓国ウォン</option>
+                        <option value="AUD">AUD - 豪ドル</option>
+                        <option value="CAD">CAD - カナダドル</option>
+                        <option value="CHF">CHF - スイスフラン</option>
+                        <option value="HKD">HKD - 香港ドル</option>
+                    </select>
+                </div>
+                <button class="refresh-btn" id="refreshBtn">
+                    <span>🔄</span>
+                    <span>更新</span>
+                </button>
+            </div>
+
+            <div class="last-updated" id="lastUpdated">データを読み込んでいます...</div>
+
+            <div class="converter">
+                <h3>💰 通貨換算</h3>
+                <div class="converter-inputs">
+                    <div class="converter-input">
+                        <label for="fromAmount" style="font-weight: 600; color: #92400e;">金額</label>
+                        <input type="number" id="fromAmount" value="1" min="0" step="0.01">
+                        <select id="fromCurrency">
+                            <option value="JPY" selected>JPY</option>
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                        </select>
+                    </div>
+                    <div class="converter-arrow">→</div>
+                    <div class="converter-input">
+                        <label for="toAmount" style="font-weight: 600; color: #92400e;">換算結果</label>
+                        <input type="number" id="toAmount" readonly>
+                        <select id="toCurrency">
+                            <option value="USD" selected>USD</option>
+                            <option value="JPY">JPY</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="通貨コードまたは名称で検索... (例: USD, ドル)">
+            </div>
+
+            <div id="ratesContainer">
+                <div class="loading">レートを読み込んでいます</div>
+            </div>
+        </div>
+
+        <footer>
+            <p>為替レート - リアルタイム通貨情報</p>
+        </footer>
+    </div>
+
+    <script>
+        const currencyNames = {
+            'USD': '米ドル',
+            'EUR': 'ユーロ',
+            'JPY': '日本円',
+            'GBP': '英ポンド',
+            'AUD': '豪ドル',
+            'CAD': 'カナダドル',
+            'CHF': 'スイスフラン',
+            'CNY': '中国元',
+            'SEK': 'スウェーデンクローナ',
+            'NZD': 'NZドル',
+            'KRW': '韓国ウォン',
+            'SGD': 'シンガポールドル',
+            'NOK': 'ノルウェークローネ',
+            'MXN': 'メキシコペソ',
+            'INR': 'インドルピー',
+            'BRL': 'ブラジルレアル',
+            'RUB': 'ロシアルーブル',
+            'ZAR': '南アフリカランド',
+            'TRY': 'トルコリラ',
+            'HKD': '香港ドル',
+            'IDR': 'インドネシアルピア',
+            'THB': 'タイバーツ',
+            'MYR': 'マレーシアリンギット',
+            'PHP': 'フィリピンペソ',
+            'DKK': 'デンマーククローネ',
+            'PLN': 'ポーランドズウォティ',
+            'AED': 'UAEディルハム',
+            'SAR': 'サウジアラビアリヤル'
+        };
+
+        const currencyFlags = {
+            'USD': '🇺🇸',
+            'EUR': '🇪🇺',
+            'JPY': '🇯🇵',
+            'GBP': '🇬🇧',
+            'AUD': '🇦🇺',
+            'CAD': '🇨🇦',
+            'CHF': '🇨🇭',
+            'CNY': '🇨🇳',
+            'SEK': '🇸🇪',
+            'NZD': '🇳🇿',
+            'KRW': '🇰🇷',
+            'SGD': '🇸🇬',
+            'NOK': '🇳🇴',
+            'MXN': '🇲🇽',
+            'INR': '🇮🇳',
+            'BRL': '🇧🇷',
+            'RUB': '🇷🇺',
+            'ZAR': '🇿🇦',
+            'TRY': '🇹🇷',
+            'HKD': '🇭🇰',
+            'IDR': '🇮🇩',
+            'THB': '🇹🇭',
+            'MYR': '🇲🇾',
+            'PHP': '🇵🇭',
+            'DKK': '🇩🇰',
+            'PLN': '🇵🇱',
+            'AED': '🇦🇪',
+            'SAR': '🇸🇦'
+        };
+
+        let currentRates = {};
+        let baseCurrency = 'JPY';
+
+        const baseCurrencySelect = document.getElementById('baseCurrency');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const ratesContainer = document.getElementById('ratesContainer');
+        const lastUpdatedEl = document.getElementById('lastUpdated');
+        const searchInput = document.getElementById('searchInput');
+        const fromAmount = document.getElementById('fromAmount');
+        const toAmount = document.getElementById('toAmount');
+        const fromCurrency = document.getElementById('fromCurrency');
+        const toCurrency = document.getElementById('toCurrency');
+
+        // Populate currency selects
+        Object.keys(currencyNames).forEach(code => {
+            const option1 = document.createElement('option');
+            option1.value = code;
+            option1.textContent = code;
+            fromCurrency.appendChild(option1);
+
+            const option2 = document.createElement('option');
+            option2.value = code;
+            option2.textContent = code;
+            toCurrency.appendChild(option2);
+        });
+
+        async function fetchRates() {
+            try {
+                refreshBtn.disabled = true;
+                ratesContainer.innerHTML = '<div class="loading">レートを読み込んでいます</div>';
+
+                const response = await fetch(`https://api.exchangerate-api.com/v4/latest/${baseCurrency}`);
+
+                if (!response.ok) {
+                    throw new Error('データの取得に失敗しました');
+                }
+
+                const data = await response.json();
+                currentRates = data.rates;
+
+                const lastUpdate = new Date(data.time_last_updated || Date.now());
+                lastUpdatedEl.textContent = `最終更新: ${lastUpdate.toLocaleString('ja-JP')}`;
+
+                displayRates();
+                updateConverter();
+            } catch (error) {
+                ratesContainer.innerHTML = `
+                    <div class="error">
+                        ⚠️ エラーが発生しました<br>
+                        ${error.message}
+                    </div>
+                `;
+            } finally {
+                refreshBtn.disabled = false;
+            }
+        }
+
+        function displayRates(filter = '') {
+            const filteredRates = Object.entries(currentRates)
+                .filter(([code]) => {
+                    if (!filter) return true;
+                    const searchTerm = filter.toLowerCase();
+                    const name = currencyNames[code] || '';
+                    return code.toLowerCase().includes(searchTerm) ||
+                           name.toLowerCase().includes(searchTerm);
+                })
+                .sort((a, b) => a[0].localeCompare(b[0]));
+
+            if (filteredRates.length === 0) {
+                ratesContainer.innerHTML = `
+                    <div class="error">
+                        🔍 「${filter}」に一致する通貨が見つかりませんでした
+                    </div>
+                `;
+                return;
+            }
+
+            ratesContainer.innerHTML = `
+                <div class="rates-grid">
+                    ${filteredRates.map(([code, rate]) => {
+                        const flag = currencyFlags[code] || '💱';
+                        const name = currencyNames[code] || code;
+
+                        return `
+                            <div class="rate-card">
+                                <div class="rate-header">
+                                    <div class="currency-flag">${flag}</div>
+                                    <div class="currency-info">
+                                        <div class="currency-code">${code}</div>
+                                        <div class="currency-name">${name}</div>
+                                    </div>
+                                </div>
+                                <div class="rate-value">${rate.toLocaleString('ja-JP', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 6
+                                })}</div>
+                                <div style="font-size: 0.85rem; color: #718096;">
+                                    1 ${baseCurrency} = ${rate.toFixed(4)} ${code}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function updateConverter() {
+            const from = fromCurrency.value;
+            const to = toCurrency.value;
+            const amount = parseFloat(fromAmount.value) || 0;
+
+            if (currentRates[from] && currentRates[to]) {
+                const fromRate = baseCurrency === from ? 1 : currentRates[from];
+                const toRate = baseCurrency === to ? 1 : currentRates[to];
+                const result = (amount / fromRate) * toRate;
+                toAmount.value = result.toFixed(2);
+            }
+        }
+
+        // Event listeners
+        baseCurrencySelect.addEventListener('change', (e) => {
+            baseCurrency = e.target.value;
+            fetchRates();
+        });
+
+        refreshBtn.addEventListener('click', fetchRates);
+
+        searchInput.addEventListener('input', (e) => {
+            displayRates(e.target.value);
+        });
+
+        fromAmount.addEventListener('input', updateConverter);
+        fromCurrency.addEventListener('change', updateConverter);
+        toCurrency.addEventListener('change', updateConverter);
+
+        // Initialize
+        fetchRates();
+    </script>
+</body>
+</html>
