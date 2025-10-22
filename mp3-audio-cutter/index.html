@@ -381,7 +381,6 @@
             </div>
 
             <div class="control-buttons">
-                <button class="control-button" id="playBtn" onclick="togglePlay()">▶ 再生</button>
                 <button class="control-button" id="playSelectionBtn" onclick="playSelection()">▶ 選択範囲を再生</button>
                 <button class="control-button" id="stopBtn" onclick="stopAudio()">⏹ 停止</button>
                 <button class="control-button primary" onclick="exportAudio()">⬇ カット範囲をダウンロード</button>
@@ -410,7 +409,6 @@
         const ctx = canvas.getContext('2d');
         const startMarker = document.getElementById('startMarker');
         const endMarker = document.getElementById('endMarker');
-        const playBtn = document.getElementById('playBtn');
 
         // ドラッグ&ドロップ
         uploadSection.addEventListener('dragover', (e) => {
@@ -596,51 +594,6 @@
             return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
         }
 
-        function togglePlay() {
-            if (isPlaying) {
-                pauseAudio();
-            } else {
-                playAudio();
-            }
-        }
-
-        function playAudio() {
-            if (isPlaying) return;
-
-            stopAudio();
-
-            sourceNode = audioContext.createBufferSource();
-            sourceNode.buffer = audioBuffer;
-            sourceNode.connect(audioContext.destination);
-
-            const offset = pauseTime || 0;
-            sourceNode.start(0, offset);
-            startTime = audioContext.currentTime - offset;
-            isPlaying = true;
-            playBtn.textContent = '⏸ 一時停止';
-
-            updateProgress();
-
-            sourceNode.onended = () => {
-                if (isPlaying) {
-                    stopAudio();
-                }
-            };
-        }
-
-        function pauseAudio() {
-            if (!isPlaying) return;
-
-            sourceNode.stop();
-            pauseTime = audioContext.currentTime - startTime;
-            isPlaying = false;
-            playBtn.textContent = '▶ 再生';
-
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        }
-
         function stopAudio() {
             if (sourceNode) {
                 try {
@@ -652,7 +605,6 @@
             isPlaying = false;
             pauseTime = 0;
             startTime = 0;
-            playBtn.textContent = '▶ 再生';
             document.getElementById('progressFill').style.width = '0%';
 
             if (animationId) {
@@ -675,7 +627,6 @@
             sourceNode.start(0, start, playDuration);
             startTime = audioContext.currentTime - start;
             isPlaying = true;
-            playBtn.textContent = '⏸ 一時停止';
 
             updateProgress();
 
