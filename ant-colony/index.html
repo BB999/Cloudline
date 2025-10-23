@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>働きアリの巣づくりストーリー</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: radial-gradient(circle at top, #121a2c 0%, #04070f 62%, #030409 100%);
+            --panel: rgba(9, 14, 22, 0.78);
+            --panel-strong: rgba(12, 18, 28, 0.92);
+            --border: rgba(148, 163, 184, 0.18);
+            --accent: hsl(28 85% 62%);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --shadow: 0 28px 60px rgba(2, 7, 18, 0.65);
+            --radius-lg: 22px;
+            --radius-md: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'メイリオ', sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        a.back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            padding: 10px 18px;
+            border-radius: 999px;
+            background: rgba(9, 14, 22, 0.74);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        a.back-button:hover {
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.45);
+        }
+
+        #canvasContainer {
+            position: fixed;
+            inset: 0;
+        }
+
+        #canvasContainer canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #uiPanel {
+            position: fixed;
+            top: clamp(60px, 8vh, 80px);
+            left: clamp(28px, 5vw, 60px);
+            width: min(420px, 90vw);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: clamp(22px, 3vw, 30px);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(24px);
+            z-index: 8;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            padding: 0.45rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 171, 92, 0.4);
+            background: rgba(255, 171, 92, 0.16);
+            color: #ffd4a3;
+        }
+
+        #uiPanel h1 {
+            font-size: clamp(1.65rem, 4vw, 2.1rem);
+            line-height: 1.2;
+        }
+
+        #uiPanel p.lead {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            font-size: 0.95rem;
+        }
+
+        .progress {
+            width: 100%;
+            height: 10px;
+            background: rgba(148, 163, 184, 0.16);
+            border-radius: 999px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            position: absolute;
+            inset: 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), rgba(255, 210, 122, 0.95));
+            border-radius: inherit;
+            transition: width 0.4s ease;
+        }
+
+        .phase-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .phase-info h2 {
+            font-size: 1.1rem;
+            color: #ffddb1;
+        }
+
+        .phase-info p {
+            color: rgba(248, 250, 252, 0.82);
+            line-height: 1.6;
+            font-size: 0.92rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 14px;
+        }
+
+        .metric-card {
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            background: var(--panel-strong);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .metric-card .label {
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(226, 232, 240, 0.64);
+        }
+
+        .metric-card .value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #ffe3b8;
+        }
+
+        .metric-card .note {
+            font-size: 0.78rem;
+            color: rgba(226, 232, 240, 0.55);
+        }
+
+        .story-log {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .story-log::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .story-log::-webkit-scrollbar-thumb {
+            background: rgba(255, 171, 92, 0.25);
+            border-radius: 999px;
+        }
+
+        .log-entry {
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            background: rgba(255, 171, 92, 0.12);
+            border: 1px solid rgba(255, 171, 92, 0.28);
+        }
+
+        .log-entry h4 {
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+            color: #ffd7a2;
+        }
+
+        .log-entry p {
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: rgba(255, 237, 213, 0.88);
+        }
+
+        #timelinePanel {
+            position: fixed;
+            bottom: clamp(24px, 6vh, 40px);
+            right: clamp(24px, 5vw, 60px);
+            width: min(360px, 88vw);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding: clamp(18px, 3vw, 24px);
+            background: rgba(8, 12, 20, 0.8);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(22px);
+            z-index: 7;
+        }
+
+        #timelinePanel h3 {
+            font-size: 1rem;
+            color: rgba(255, 237, 213, 0.92);
+        }
+
+        #timelinePanel ol {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #timelinePanel li {
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 12px;
+            align-items: center;
+            transition: all 0.35s ease;
+            background: rgba(148, 163, 184, 0.08);
+            color: rgba(226, 232, 240, 0.78);
+            font-size: 0.86rem;
+        }
+
+        #timelinePanel li span.range {
+            font-family: 'Fira Code', 'SFMono-Regular', ui-monospace, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: rgba(148, 163, 184, 0.8);
+        }
+
+        #timelinePanel li.active {
+            border-color: rgba(255, 210, 122, 0.7);
+            background: rgba(255, 210, 122, 0.18);
+            color: rgba(255, 242, 224, 0.95);
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .controls-row button {
+            flex: 1;
+            border: 1px solid rgba(255, 210, 122, 0.45);
+            background: rgba(255, 210, 122, 0.12);
+            color: rgba(255, 237, 213, 0.92);
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: transform 0.25s ease, background 0.25s ease;
+        }
+
+        .controls-row button:hover {
+            background: rgba(255, 210, 122, 0.24);
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 1024px) {
+            #uiPanel {
+                position: static;
+                width: auto;
+                margin: 100px auto 20px;
+            }
+
+            #timelinePanel {
+                position: static;
+                width: auto;
+                margin: 0 auto 40px;
+            }
+
+            body {
+                overflow-y: auto;
+            }
+
+            #canvasContainer {
+                position: absolute;
+                inset: 0;
+                min-height: 100vh;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .metric-card {
+                padding: 12px;
+            }
+
+            .controls-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a class="back-button" href="../index.html">← アプリ一覧に戻る</a>
+    <div id="canvasContainer"></div>
+
+    <section id="uiPanel">
+        <div class="badge">three.js colony story</div>
+        <h1>働きアリの巣づくりジオラマ</h1>
+        <p class="lead">探索・採掘・拡張・育成の4フェーズを巡りながら、働きアリたちが緻密に巣を構築していく様子をリアルタイムで描画します。巣穴の成長とフェロモンの流れを追いかけながら、コロニーの物語を覗いてみましょう。</p>
+
+        <div class="progress">
+            <div class="progress-fill"></div>
+        </div>
+
+        <div class="phase-info">
+            <h2 id="phaseTitle">探索フェーズ</h2>
+            <p id="phaseDescription">働きアリが地表を奔走し、最適な巣穴の立地を調査中。</p>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <span class="label">働きアリ</span>
+                <span class="value" id="metricAnts">60 匹</span>
+                <span class="note">分隊ごとに役割分担</span>
+            </div>
+            <div class="metric-card">
+                <span class="label">搬出した土量</span>
+                <span class="value" id="metricSoil">0 cm³</span>
+                <span class="note">地表に積み上げられた量</span>
+            </div>
+            <div class="metric-card">
+                <span class="label">完成した部屋</span>
+                <span class="value" id="metricChambers">1 部屋</span>
+                <span class="note">女王と育児部屋を含む</span>
+            </div>
+            <div class="metric-card">
+                <span class="label">フェロモン濃度</span>
+                <span class="value" id="metricTrails">0%</span>
+                <span class="note">探索路の輝きで可視化</span>
+            </div>
+        </div>
+
+        <div class="story-log" id="storyLog"></div>
+
+        <div class="controls-row">
+            <button id="resetButton">ストーリーを最初から</button>
+            <button id="focusButton">巣穴を中央にフォーカス</button>
+        </div>
+    </section>
+
+    <aside id="timelinePanel">
+        <h3>活動タイムライン</h3>
+        <ol>
+            <li data-start="0" data-end="0.26">
+                <span class="range">00–25%</span>
+                <div>
+                    <strong>偵察隊が走査</strong><br>
+                    土壌の硬さを測り、地表にフェロモンで路線を描画。
+                </div>
+            </li>
+            <li data-start="0.26" data-end="0.58">
+                <span class="range">26–57%</span>
+                <div>
+                    <strong>採掘と土寄せ</strong><br>
+                    巣穴内部の土を抱えて運び、表層にドームを築く。
+                </div>
+            </li>
+            <li data-start="0.58" data-end="0.82">
+                <span class="range">58–81%</span>
+                <div>
+                    <strong>通路の拡張</strong><br>
+                    地下トンネルを掘り進め、女王の部屋まで光が届く。
+                </div>
+            </li>
+            <li data-start="0.82" data-end="1.01">
+                <span class="range">82–100%</span>
+                <div>
+                    <strong>育成とメンテ</strong><br>
+                    卵室を整え、巣全体の通気を調整。次のサイクルへ。
+                </div>
+            </li>
+        </ol>
+    </aside>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+
+        const container = document.getElementById('canvasContainer');
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        if ('outputColorSpace' in renderer && THREE.SRGBColorSpace !== undefined) {
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+        } else if ('outputEncoding' in renderer && THREE.sRGBEncoding !== undefined) {
+            renderer.outputEncoding = THREE.sRGBEncoding;
+        }
+        renderer.setClearColor(0x030508, 1);
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x030508);
+        scene.fog = new THREE.FogExp2(0x030508, 0.12);
+
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 120);
+        camera.position.set(3.6, 2.3, 3.5);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxDistance = 8;
+        controls.minDistance = 1.2;
+        controls.target.set(0, 0.45, 0);
+
+        const ambientLight = new THREE.AmbientLight(0xfff0db, 0.24);
+        scene.add(ambientLight);
+
+        const hemiLight = new THREE.HemisphereLight(0xffd9a3, 0x0b0f1a, 0.55);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfff2d6, 0.85);
+        dirLight.position.set(-2.6, 3.4, 1.8);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.set(1024, 1024);
+        dirLight.shadow.normalBias = 0.04;
+        dirLight.shadow.bias = -0.0008;
+        scene.add(dirLight);
+
+        const warmSpot = new THREE.SpotLight(0xff9d5c, 1.15, 9, Math.PI / 4, 0.35, 1.0);
+        warmSpot.position.set(2.8, 3.8, 2.4);
+        warmSpot.castShadow = true;
+        warmSpot.shadow.mapSize.set(1024, 1024);
+        warmSpot.shadow.bias = -0.0006;
+        warmSpot.target.position.set(0, 0.35, 0);
+        scene.add(warmSpot);
+        scene.add(warmSpot.target);
+
+        const groundGeometry = new THREE.PlaneGeometry(16, 16, 120, 120);
+        const positions = groundGeometry.attributes.position;
+        const colorArray = [];
+        const color = new THREE.Color();
+        for (let i = 0; i < positions.count; i++) {
+            const x = positions.getX(i);
+            const z = positions.getZ(i);
+            const dist = Math.sqrt(x * x + z * z);
+            const base = Math.exp(-dist * 0.3);
+            const noise = (Math.sin(x * 0.6) + Math.cos(z * 0.65) + Math.sin((x + z) * 0.4)) * 0.08;
+            const height = base * 0.4 + noise * 0.45;
+            positions.setY(i, height * 0.18 - 0.4);
+            const hue = THREE.MathUtils.lerp(0.07, 0.12, base);
+            const lightness = THREE.MathUtils.lerp(0.12, 0.32, base);
+            color.setHSL(hue, 0.45, lightness);
+            colorArray.push(color.r, color.g, color.b);
+        }
+        groundGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colorArray, 3));
+        const groundMaterial = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.95,
+            metalness: 0.08,
+            envMapIntensity: 0.2
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        const nestGroup = new THREE.Group();
+        scene.add(nestGroup);
+
+        const moundCoreMaterial = new THREE.MeshStandardMaterial({ color: 0x8d6238, roughness: 0.9, metalness: 0.05 });
+        const moundCore = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1.1, 0.64, 32, 4, true), moundCoreMaterial);
+        moundCore.position.y = 0.32;
+        moundCore.castShadow = true;
+        moundCore.receiveShadow = true;
+        moundCore.scale.setScalar(0.001);
+        nestGroup.add(moundCore);
+
+        const moundTopMaterial = new THREE.MeshStandardMaterial({ color: 0x9c6b3d, roughness: 0.86, metalness: 0.08 });
+        const moundTop = new THREE.Mesh(new THREE.SphereGeometry(0.62, 36, 18), moundTopMaterial);
+        moundTop.position.y = 0.72;
+        moundTop.castShadow = true;
+        moundTop.receiveShadow = true;
+        moundTop.scale.setScalar(0.001);
+        nestGroup.add(moundTop);
+
+        const craterRing = new THREE.Mesh(
+            new THREE.TorusGeometry(0.52, 0.08, 24, 100),
+            new THREE.MeshStandardMaterial({ color: 0x4c2d1c, roughness: 0.92, metalness: 0.04, transparent: true, opacity: 0 })
+        );
+        craterRing.rotation.x = Math.PI / 2;
+        craterRing.position.y = 0.1;
+        nestGroup.add(craterRing);
+
+        const glow = new THREE.Mesh(
+            new THREE.SphereGeometry(0.42, 32, 16),
+            new THREE.MeshBasicMaterial({ color: 0xffc07a, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending })
+        );
+        glow.position.y = 0.36;
+        nestGroup.add(glow);
+
+        const chunkCount = 260;
+        const chunkGeometry = new THREE.DodecahedronGeometry(0.08, 0);
+        const chunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8a5c34, roughness: 0.88, metalness: 0.05 });
+        const chunks = new THREE.InstancedMesh(chunkGeometry, chunkMaterial, chunkCount);
+        chunks.castShadow = true;
+        nestGroup.add(chunks);
+
+        const chunkData = [];
+        const chunkDummy = new THREE.Object3D();
+        for (let i = 0; i < chunkCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = THREE.MathUtils.lerp(0.12, 1.1, Math.pow(Math.random(), 1.2));
+            const height = THREE.MathUtils.lerp(0.08, 0.9, Math.random());
+            const appearAt = 0.22 + Math.random() * 0.42;
+            const position = new THREE.Vector3(
+                Math.cos(angle) * radius * 0.6,
+                height - 0.05,
+                Math.sin(angle) * radius * 0.6
+            );
+            const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            ));
+            const targetScale = THREE.MathUtils.lerp(0.3, 0.9, Math.random());
+            chunkData.push({ position, quaternion, appearAt, targetScale, currentScale: 0.0001, growth: 0.6 + Math.random() * 0.6 });
+            chunkDummy.position.copy(position);
+            chunkDummy.quaternion.copy(quaternion);
+            chunkDummy.scale.setScalar(0.0001);
+            chunkDummy.updateMatrix();
+            chunks.setMatrixAt(i, chunkDummy.matrix);
+        }
+
+        const tunnelMaterial = new THREE.MeshStandardMaterial({ color: 0x5c3a24, roughness: 0.92, metalness: 0.04, transparent: true, opacity: 0 });
+        const tunnels = [];
+        const createTunnel = (radius, depth, arc, revealAt) => {
+            const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.08, 18, 120, arc), tunnelMaterial.clone());
+            mesh.rotation.x = Math.PI / 2;
+            mesh.position.y = depth;
+            mesh.castShadow = false;
+            mesh.receiveShadow = true;
+            nestGroup.add(mesh);
+            tunnels.push({ mesh, revealAt, baseOpacity: 0.45 + Math.random() * 0.25 });
+        };
+        createTunnel(0.8, -0.06, Math.PI * 1.05, 0.54);
+        createTunnel(1.1, -0.14, Math.PI * 1.2, 0.66);
+        createTunnel(0.52, -0.18, Math.PI * 0.92, 0.72);
+
+        const shaftGeometry = new THREE.CylinderGeometry(0.14, 0.14, 0.9, 24, 1, true);
+        shaftGeometry.translate(0, -0.45, 0);
+        const shaftMaterial = new THREE.MeshStandardMaterial({ color: 0x482a1c, roughness: 0.95, metalness: 0.02, transparent: true, opacity: 0 });
+        const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
+        shaft.position.y = 0.18;
+        nestGroup.add(shaft);
+
+        const chamberGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(0.24, 20, 16),
+            new THREE.MeshBasicMaterial({ color: 0xffd494, transparent: true, opacity: 0, blending: THREE.AdditiveBlending })
+        );
+        chamberGlow.position.set(0.1, -0.18, 0.06);
+        nestGroup.add(chamberGlow);
+
+        const sparkleCount = 180;
+        const sparklePositions = new Float32Array(sparkleCount * 3);
+        const sparkleGeometry = new THREE.BufferGeometry();
+        sparkleGeometry.setAttribute('position', new THREE.BufferAttribute(sparklePositions, 3));
+        const sparkleMaterial = new THREE.PointsMaterial({ color: 0xffe0b5, size: 0.04, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false });
+        const sparklePoints = new THREE.Points(sparkleGeometry, sparkleMaterial);
+        nestGroup.add(sparklePoints);
+
+        const sparkleData = [];
+        for (let i = 0; i < sparkleCount; i++) {
+            sparkleData.push({
+                angle: Math.random() * Math.PI * 2,
+                radius: THREE.MathUtils.lerp(0.2, 1.2, Math.random()),
+                height: THREE.MathUtils.lerp(0.05, 0.9, Math.random()),
+                speed: THREE.MathUtils.lerp(0.4, 1.2, Math.random()),
+                offset: Math.random() * Math.PI * 2
+            });
+        }
+
+        const antCount = 64;
+        const antGeometry = new THREE.CapsuleGeometry(0.038, 0.16, 6, 8);
+        const antMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.25, roughness: 0.35, flatShading: true, vertexColors: true });
+        const ants = new THREE.InstancedMesh(antGeometry, antMaterial, antCount);
+        ants.castShadow = true;
+        scene.add(ants);
+
+        const antColors = new Float32Array(antCount * 3);
+        ants.instanceColor = new THREE.InstancedBufferAttribute(antColors, 3);
+
+        const cargoGeometry = new THREE.SphereGeometry(0.055, 8, 8);
+        const cargoMaterial = new THREE.MeshStandardMaterial({ color: 0xffcfa1, roughness: 0.85, metalness: 0.05, transparent: true, opacity: 0.9 });
+        const cargos = new THREE.InstancedMesh(cargoGeometry, cargoMaterial, antCount);
+        cargos.castShadow = true;
+        scene.add(cargos);
+
+        const moundScaleTarget = new THREE.Vector3();
+
+        const antDummy = new THREE.Object3D();
+        const cargoDummy = new THREE.Object3D();
+        const forward = new THREE.Vector3();
+        const lookTarget = new THREE.Vector3();
+        const swirl = new THREE.Vector3();
+        const tempVec = new THREE.Vector3();
+
+        const antStates = Array.from({ length: antCount }, (_, i) => ({
+            position: new THREE.Vector3((Math.random() - 0.5) * 3.4, 0.08, (Math.random() - 0.5) * 3.4),
+            velocity: new THREE.Vector3(),
+            target: new THREE.Vector3((Math.random() - 0.5) * 3.0, 0.08, (Math.random() - 0.5) * 3.0),
+            mood: Math.random(),
+            carrying: Math.random() < 0.25,
+            timer: Math.random() * 4
+        }));
+
+        const pheromoneCount = 1400;
+        const pheromonePositions = new Float32Array(pheromoneCount * 3);
+        const pheromoneGeometry = new THREE.BufferGeometry();
+        pheromoneGeometry.setAttribute('position', new THREE.BufferAttribute(pheromonePositions, 3));
+        const pheromoneMaterial = new THREE.PointsMaterial({ color: 0x88e0ff, size: 0.045, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false });
+        const pheromonePoints = new THREE.Points(pheromoneGeometry, pheromoneMaterial);
+        scene.add(pheromonePoints);
+        const pheromoneAges = new Float32Array(pheromoneCount);
+        let pheromoneCursor = 0;
+        let activePheromones = 0;
+
+        const phases = [
+            {
+                name: '探索フェーズ',
+                start: 0,
+                end: 0.26,
+                description: '働きアリが地表を奔走し、フェロモンで安全なルートを描きながら巣穴の候補地を調査します。',
+                story: '偵察隊が砂粒を跳ねさせながら地表のマッピングを開始。淡い青い軌跡が理想的なルートを描き始めました。'
+            },
+            {
+                name: '採掘フェーズ',
+                start: 0.26,
+                end: 0.58,
+                description: '内側の土砂を抱えて地表に運び、女王を守るドーム状の外壁を整えていきます。',
+                story: '土砂を抱えた搬出班が列をなし、小さな粒が次々と山へ。巣の稜線が少しずつ立体感を帯びてきました。'
+            },
+            {
+                name: '拡張フェーズ',
+                start: 0.58,
+                end: 0.82,
+                description: '枝状の通路を掘り伸ばし、風が通り抜ける換気シャフトと幼虫のための居室を増設します。',
+                story: '地下で淡い橙色の光が点灯。通路が滑らかな弧を描き、巣内の空気が循環し始めます。'
+            },
+            {
+                name: '育成フェーズ',
+                start: 0.82,
+                end: 1.01,
+                description: '卵室を暖め、巣全体の湿度を調整。新たな世代の準備と次の探索に備えます。',
+                story: '女王の居室が柔らかな光で満たされ、育児班が卵を丁寧に並び替えています。巣は次の物語へ。'
+            }
+        ];
+
+        const timelineItems = document.querySelectorAll('#timelinePanel li');
+        const progressFill = document.querySelector('.progress-fill');
+        const phaseTitle = document.getElementById('phaseTitle');
+        const phaseDescription = document.getElementById('phaseDescription');
+        const metricAnts = document.getElementById('metricAnts');
+        const metricSoil = document.getElementById('metricSoil');
+        const metricChambers = document.getElementById('metricChambers');
+        const metricTrails = document.getElementById('metricTrails');
+        const storyLog = document.getElementById('storyLog');
+        const resetButton = document.getElementById('resetButton');
+        const focusButton = document.getElementById('focusButton');
+
+        const accentColor = new THREE.Color();
+
+        let lastPhaseName = '';
+        let moundGrowth = 0;
+        let activeChunkCount = 0;
+
+        const clock = new THREE.Clock();
+        let elapsed = 0;
+        const cycleDuration = 86;
+
+        function depositPheromone(position) {
+            const idx = pheromoneCursor % pheromoneCount;
+            pheromonePositions[idx * 3] = position.x;
+            pheromonePositions[idx * 3 + 1] = position.y + 0.02;
+            pheromonePositions[idx * 3 + 2] = position.z;
+            pheromoneAges[idx] = 1.0;
+            pheromoneCursor++;
+            pheromoneGeometry.attributes.position.needsUpdate = true;
+        }
+
+        function fadePheromones(delta, progress) {
+            activePheromones = 0;
+            let needsUpdate = false;
+            for (let i = 0; i < pheromoneCount; i++) {
+                const age = pheromoneAges[i];
+                if (age > 0) {
+                    const newAge = age - delta * THREE.MathUtils.lerp(0.12, 0.22, progress);
+                    pheromoneAges[i] = newAge;
+                    if (newAge <= 0) {
+                        pheromonePositions[i * 3 + 1] = -40;
+                        needsUpdate = true;
+                    } else {
+                        activePheromones++;
+                        pheromonePositions[i * 3 + 1] -= delta * 0.01;
+                        needsUpdate = true;
+                    }
+                }
+            }
+            if (needsUpdate) {
+                pheromoneGeometry.attributes.position.needsUpdate = true;
+            }
+            pheromoneMaterial.opacity = THREE.MathUtils.lerp(0.12, 0.35, Math.min(progress * 1.4, 1)) + Math.sin(elapsed * 0.8) * 0.04;
+            pheromoneMaterial.size = 0.03 + Math.sin(elapsed * 0.9 + progress * 4) * 0.01;
+        }
+
+        function updateAnts(progress, delta) {
+            const exploreRadius = THREE.MathUtils.lerp(1.8, 1.1, progress);
+            const nestRadius = THREE.MathUtils.lerp(0.35, 0.85, moundGrowth);
+            for (let i = 0; i < antCount; i++) {
+                const ant = antStates[i];
+                ant.timer -= delta;
+
+                if (progress < 0.26) {
+                    if (ant.timer <= 0) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const radius = THREE.MathUtils.lerp(0.6, exploreRadius, Math.random());
+                        ant.target.set(Math.cos(angle) * radius, 0.08 + Math.random() * 0.12, Math.sin(angle) * radius);
+                        ant.timer = 1.2 + Math.random() * 1.2;
+                    }
+                } else if (progress < 0.58) {
+                    if (ant.timer <= 0) {
+                        if (ant.carrying) {
+                            ant.target.set(
+                                THREE.MathUtils.randFloatSpread(nestRadius * 0.8),
+                                0.24 + Math.random() * 0.6,
+                                THREE.MathUtils.randFloatSpread(nestRadius * 0.8)
+                            );
+                        } else {
+                            const angle = Math.random() * Math.PI * 2;
+                            const radius = THREE.MathUtils.lerp(0.9, 1.6, Math.random());
+                            ant.target.set(Math.cos(angle) * radius, 0.05 + Math.random() * 0.08, Math.sin(angle) * radius);
+                        }
+                        ant.timer = 0.8 + Math.random() * 1.0;
+                    }
+                    if (Math.random() < 0.002 + moundGrowth * 0.004) {
+                        ant.carrying = !ant.carrying;
+                    }
+                } else {
+                    if (ant.timer <= 0) {
+                        const ring = nestRadius + THREE.MathUtils.lerp(0.25, 0.75, Math.random());
+                        const angle = Math.random() * Math.PI * 2 + elapsed * 0.3;
+                        ant.target.set(Math.cos(angle) * ring, 0.1 + Math.random() * 0.35, Math.sin(angle) * ring);
+                        ant.timer = 0.9 + Math.random() * 1.3;
+                    }
+                    ant.carrying = Math.random() < 0.32;
+                }
+
+                tempVec.copy(ant.target).sub(ant.position);
+                const distance = tempVec.length();
+                if (distance > 0.02) {
+                    tempVec.normalize();
+                    const desiredSpeed = THREE.MathUtils.lerp(0.6, 1.2, progress) * (0.6 + ant.mood * 0.6);
+                    ant.velocity.lerp(tempVec.multiplyScalar(desiredSpeed), 0.08 + ant.mood * 0.05);
+                } else {
+                    ant.velocity.multiplyScalar(0.82);
+                }
+
+                swirl.set(-ant.position.z, 0, ant.position.x).normalize().multiplyScalar(0.18 * (0.4 + moundGrowth * 0.8));
+                ant.velocity.addScaledVector(swirl, delta);
+                ant.velocity.x += (Math.random() - 0.5) * 0.08;
+                ant.velocity.z += (Math.random() - 0.5) * 0.08;
+                ant.velocity.y += (Math.random() - 0.5) * 0.03;
+
+                ant.position.addScaledVector(ant.velocity, delta);
+                ant.position.y = THREE.MathUtils.clamp(ant.position.y, 0.04, 1.9);
+
+                const radiusLimit = 3.2;
+                const currentRadius = Math.sqrt(ant.position.x * ant.position.x + ant.position.z * ant.position.z);
+                if (currentRadius > radiusLimit) {
+                    ant.position.multiplyScalar(0.96);
+                    ant.target.multiplyScalar(0.8);
+                }
+
+                if (ant.position.y < 0.12 && Math.random() < 0.22) {
+                    depositPheromone(ant.position);
+                }
+
+                const yaw = Math.atan2(ant.velocity.x, ant.velocity.z);
+                antDummy.position.copy(ant.position);
+                antDummy.rotation.set(Math.PI / 2 + Math.sin(elapsed * 2 + i) * 0.08, yaw, 0);
+                const scale = 0.58 + ant.mood * 0.25 + (ant.carrying ? 0.16 : 0);
+                antDummy.scale.setScalar(scale);
+                antDummy.updateMatrix();
+                ants.setMatrixAt(i, antDummy.matrix);
+
+                cargoDummy.position.copy(ant.position);
+                cargoDummy.position.y += 0.08 + Math.sin(elapsed * 4 + i) * 0.01;
+                cargoDummy.rotation.set(0, yaw, 0);
+                cargoDummy.scale.setScalar(ant.carrying ? 0.55 : 0.0001);
+                cargoDummy.updateMatrix();
+                cargos.setMatrixAt(i, cargoDummy.matrix);
+
+                const colorIndex = i * 3;
+                if (ant.carrying) {
+                    antColors[colorIndex] = 1.0;
+                    antColors[colorIndex + 1] = 0.71;
+                    antColors[colorIndex + 2] = 0.42;
+                } else {
+                    antColors[colorIndex] = 0.9;
+                    antColors[colorIndex + 1] = 0.4;
+                    antColors[colorIndex + 2] = 0.3;
+                }
+            }
+            ants.instanceColor.needsUpdate = true;
+            ants.instanceMatrix.needsUpdate = true;
+            cargos.instanceMatrix.needsUpdate = true;
+        }
+
+        function updateChunks(progress, delta) {
+            activeChunkCount = 0;
+            for (let i = 0; i < chunkCount; i++) {
+                const chunk = chunkData[i];
+                const appear = THREE.MathUtils.smoothstep(progress, chunk.appearAt - 0.05, chunk.appearAt + 0.18);
+                const target = chunk.targetScale * appear;
+                chunk.currentScale = THREE.MathUtils.lerp(chunk.currentScale, target, delta * chunk.growth * 2.2);
+                if (chunk.currentScale > 0.01) {
+                    activeChunkCount++;
+                }
+                chunkDummy.position.copy(chunk.position);
+                chunkDummy.position.y = THREE.MathUtils.lerp(chunk.position.y * 0.6, chunk.position.y * 1.05 + 0.12, moundGrowth);
+                chunkDummy.quaternion.copy(chunk.quaternion);
+                chunkDummy.scale.setScalar(Math.max(chunk.currentScale, 0.0001));
+                chunkDummy.updateMatrix();
+                chunks.setMatrixAt(i, chunkDummy.matrix);
+            }
+            chunks.instanceMatrix.needsUpdate = true;
+        }
+
+        function updateNest(progress, delta) {
+            moundGrowth = THREE.MathUtils.clamp((progress - 0.2) / 0.65, 0, 1);
+            const moundScale = THREE.MathUtils.lerp(0.2, 1, moundGrowth);
+            moundScaleTarget.setScalar(moundScale);
+            moundCore.scale.lerp(moundScaleTarget, 0.1);
+            moundTop.scale.lerp(moundScaleTarget, 0.1);
+            craterRing.scale.setScalar(THREE.MathUtils.lerp(0.4, 1, moundGrowth));
+            craterRing.material.opacity = THREE.MathUtils.clamp((progress - 0.28) * 2, 0, 0.75);
+
+            glow.material.opacity = THREE.MathUtils.clamp(moundGrowth * 0.35 + Math.sin(elapsed * 2.1) * 0.05, 0, 0.45);
+            glow.scale.setScalar(THREE.MathUtils.lerp(0.6, 1.3, moundGrowth) + Math.sin(elapsed * 1.4) * 0.05);
+
+            updateChunks(progress, delta);
+
+            const shaftReveal = THREE.MathUtils.clamp((progress - 0.64) / 0.18, 0, 1);
+            shaft.material.opacity = THREE.MathUtils.lerp(0, 0.52, shaftReveal);
+            chamberGlow.material.opacity = THREE.MathUtils.clamp((progress - 0.68) * 1.8, 0, 0.6) + Math.sin(elapsed * 2.4) * 0.05;
+            chamberGlow.scale.setScalar(THREE.MathUtils.lerp(0.6, 1.2, shaftReveal));
+
+            tunnels.forEach(({ mesh, revealAt, baseOpacity }) => {
+                const t = THREE.MathUtils.clamp((progress - revealAt) / 0.18, 0, 1);
+                mesh.material.opacity = THREE.MathUtils.lerp(mesh.material.opacity, baseOpacity * t, delta * 3.2);
+                mesh.scale.setScalar(THREE.MathUtils.lerp(0.4, 1, t));
+            });
+
+            for (let i = 0; i < sparkleCount; i++) {
+                const data = sparkleData[i];
+                data.angle += delta * data.speed * (0.6 + moundGrowth);
+                const radius = data.radius * (0.4 + moundGrowth * 0.9);
+                sparklePositions[i * 3] = Math.cos(data.angle) * radius;
+                sparklePositions[i * 3 + 1] = THREE.MathUtils.lerp(0.12, 0.92, data.height) + Math.sin(elapsed * data.speed + data.offset) * 0.05;
+                sparklePositions[i * 3 + 2] = Math.sin(data.angle) * radius;
+            }
+            sparkleGeometry.attributes.position.needsUpdate = true;
+            sparkleMaterial.opacity = THREE.MathUtils.lerp(0.0, 0.45, moundGrowth);
+            sparkleMaterial.size = THREE.MathUtils.lerp(0.02, 0.06, moundGrowth);
+        }
+
+        function updateUI(progress) {
+            const progressPercent = (progress * 100).toFixed(1);
+            progressFill.style.width = `${progressPercent}%`;
+
+            const phase = phases.find(p => progress >= p.start && progress < p.end) || phases[phases.length - 1];
+            if (phase.name !== lastPhaseName) {
+                phaseTitle.textContent = phase.name;
+                phaseDescription.textContent = phase.description;
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerHTML = `<h4>${phase.name}</h4><p>${phase.story}</p>`;
+                storyLog.prepend(entry);
+                while (storyLog.children.length > 5) {
+                    storyLog.removeChild(storyLog.lastChild);
+                }
+                lastPhaseName = phase.name;
+            }
+
+            timelineItems.forEach(item => {
+                const start = parseFloat(item.dataset.start);
+                const end = parseFloat(item.dataset.end);
+                if (progress >= start && progress < end) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            accentColor.setHSL(THREE.MathUtils.lerp(0.06, 0.1, moundGrowth), 0.85, 0.6);
+            document.documentElement.style.setProperty('--accent', accentColor.getStyle());
+
+            metricAnts.textContent = `${antCount} 匹`;
+            const soilVolume = Math.round(activeChunkCount / chunkCount * 340);
+            metricSoil.textContent = `${soilVolume} cm³`;
+            const chamberCount = 1 + Math.round(THREE.MathUtils.lerp(0, 6, moundGrowth));
+            metricChambers.textContent = `${chamberCount} 部屋`;
+            const pheromoneRatio = Math.min(100, Math.round((activePheromones / pheromoneCount) * 120));
+            metricTrails.textContent = `${pheromoneRatio}%`;
+        }
+
+        function update(progress, delta) {
+            fadePheromones(delta, progress);
+            updateNest(progress, delta);
+            updateAnts(progress, delta);
+            updateUI(progress);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            elapsed += delta;
+            const progress = (elapsed % cycleDuration) / cycleDuration;
+            update(progress, delta);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        resetButton.addEventListener('click', () => {
+            elapsed = 0;
+            lastPhaseName = '';
+            storyLog.innerHTML = '';
+        });
+
+        focusButton.addEventListener('click', () => {
+            controls.target.set(0, 0.45, 0);
+            camera.position.set(3.6, 2.3, 3.5);
+        });
+    </script>
+</body>
+</html>
