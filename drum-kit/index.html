@@ -741,8 +741,17 @@
     <script>
         class HyperDrumEngine {
             constructor() {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                this.ctx = new AudioCtx();
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) {
+                        throw new Error('Web Audio API not supported');
+                    }
+                    this.ctx = new AudioCtx();
+                } catch (error) {
+                    console.error('Audio engine initialization failed:', error);
+                    this.ctx = null;
+                    return;
+                }
                 this.masterGain = this.ctx.createGain();
                 this.masterGain.gain.value = 0.8;
 
@@ -768,6 +777,7 @@
             }
 
             resume() {
+                if (!this.ctx) return Promise.resolve();
                 if (this.ctx.state === 'suspended') {
                     return this.ctx.resume();
                 }
@@ -775,11 +785,13 @@
             }
 
             setVolume(value) {
+                if (!this.ctx) return;
                 const normalized = Math.max(0, Math.min(1, value));
                 this.masterGain.gain.setTargetAtTime(normalized, this.ctx.currentTime, 0.05);
             }
 
             setTightness(amount) {
+                if (!this.ctx) return;
                 const mapped = amount * 0.45;
                 this.compressor.threshold.setTargetAtTime(-30 + mapped, this.ctx.currentTime, 0.05);
                 this.compressor.ratio.setTargetAtTime(2 + amount * 3.5, this.ctx.currentTime, 0.05);
@@ -788,11 +800,13 @@
             }
 
             toggleAmbience(enabled) {
+                if (!this.ctx) return;
                 this.ambienceEnabled = enabled;
                 this.reverbGain.gain.setTargetAtTime(enabled ? 0.24 : 0.0, this.ctx.currentTime, 0.1);
             }
 
             trigger(sound) {
+                if (!this.ctx) return;
                 const now = this.ctx.currentTime;
                 switch (sound) {
                     case 'kick':
@@ -831,6 +845,10 @@
                     send.gain.value = sendLevel;
                     node.connect(send);
                     send.connect(this.reverb);
+                    // Store send node for cleanup
+                    if (!node._reverbSend) {
+                        node._reverbSend = send;
+                    }
                 }
             }
 
@@ -859,9 +877,17 @@
 
                 osc.start(startTime);
                 osc.stop(startTime + 0.5);
+                osc.onended = () => {
+                    osc.disconnect();
+                    gain.disconnect();
+                };
 
                 clickOsc.start(startTime);
                 clickOsc.stop(startTime + 0.18);
+                clickOsc.onended = () => {
+                    clickOsc.disconnect();
+                    click.disconnect();
+                };
             }
 
             #playSnare(startTime) {
@@ -891,8 +917,20 @@
 
                 noise.start(startTime);
                 noise.stop(startTime + 0.3);
+                noise.onended = () => {
+                    noise.disconnect();
+                    noiseFilter.disconnect();
+                    noiseGain.disconnect();
+                    if (noiseGain._reverbSend) noiseGain._reverbSend.disconnect();
+                };
+
                 tone.start(startTime);
                 tone.stop(startTime + 0.25);
+                tone.onended = () => {
+                    tone.disconnect();
+                    toneGain.disconnect();
+                    if (toneGain._reverbSend) toneGain._reverbSend.disconnect();
+                };
             }
 
             #playHiHat(startTime) {
@@ -916,6 +954,13 @@
 
                 noise.start(startTime);
                 noise.stop(startTime + 0.2);
+                noise.onended = () => {
+                    noise.disconnect();
+                    highPass.disconnect();
+                    bandPass.disconnect();
+                    gain.disconnect();
+                    if (gain._reverbSend) gain._reverbSend.disconnect();
+                };
             }
 
             #playClap(startTime) {
@@ -934,6 +979,12 @@
                     this.#connectWithAmbience(gain, 0.22);
                     noise.start(startTime + offset);
                     noise.stop(startTime + offset + 0.25);
+                    noise.onended = () => {
+                        noise.disconnect();
+                        bandPass.disconnect();
+                        gain.disconnect();
+                        if (gain._reverbSend) gain._reverbSend.disconnect();
+                    };
                 };
 
                 createBurst(0);
@@ -953,6 +1004,11 @@
                 this.#connectWithAmbience(gain, 0.18);
                 osc.start(startTime);
                 osc.stop(startTime + 0.65);
+                osc.onended = () => {
+                    osc.disconnect();
+                    gain.disconnect();
+                    if (gain._reverbSend) gain._reverbSend.disconnect();
+                };
             }
 
             #playRide(startTime) {
@@ -972,6 +1028,12 @@
 
                 noise.start(startTime);
                 noise.stop(startTime + 1.3);
+                noise.onended = () => {
+                    noise.disconnect();
+                    bandPass.disconnect();
+                    gain.disconnect();
+                    if (gain._reverbSend) gain._reverbSend.disconnect();
+                };
             }
 
             #playPerc(startTime) {
@@ -1002,8 +1064,20 @@
 
                 noise.start(startTime);
                 noise.stop(startTime + 0.4);
+                noise.onended = () => {
+                    noise.disconnect();
+                    bandPass.disconnect();
+                    gain.disconnect();
+                    if (gain._reverbSend) gain._reverbSend.disconnect();
+                };
+
                 osc.start(startTime);
                 osc.stop(startTime + 0.35);
+                osc.onended = () => {
+                    osc.disconnect();
+                    toneGain.disconnect();
+                    if (toneGain._reverbSend) toneGain._reverbSend.disconnect();
+                };
             }
 
             #createNoiseBuffer() {
@@ -1026,6 +1100,13 @@
                     }
                 }
                 return impulse;
+            }
+
+            destroy() {
+                if (this.ctx) {
+                    this.ctx.close();
+                    this.ctx = null;
+                }
             }
         }
 
@@ -1082,6 +1163,16 @@
             activatePad(pad);
         };
 
+        // Store event handlers for cleanup
+        const eventHandlers = {
+            padHandlers: [],
+            keydownHandler: null,
+            volumeHandler: null,
+            tightnessHandler: null,
+            ambienceHandler: null,
+            resumeHandler: null
+        };
+
         pads.forEach(pad => {
             const start = (event) => {
                 event.preventDefault();
@@ -1089,32 +1180,64 @@
             };
             pad.addEventListener('mousedown', start);
             pad.addEventListener('touchstart', start, { passive: false });
+            eventHandlers.padHandlers.push({ pad, handler: start });
         });
 
-        document.addEventListener('keydown', (event) => {
+        eventHandlers.keydownHandler = (event) => {
+            // Ignore keys with modifiers (Shift, Ctrl, Alt, Meta)
+            if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
             const key = event.key.toLowerCase();
             if (!keyToPad.has(key)) return;
             const pad = keyToPad.get(key);
             triggerPad(pad);
-        });
+        };
+        document.addEventListener('keydown', eventHandlers.keydownHandler);
 
-        volumeSlider.addEventListener('input', (event) => {
+        eventHandlers.volumeHandler = (event) => {
             const value = Number(event.target.value);
             updateVolumeLabel(value);
             engine.setVolume(value / 100);
-        });
+        };
+        volumeSlider.addEventListener('input', eventHandlers.volumeHandler);
 
-        tightnessSlider.addEventListener('input', (event) => {
+        eventHandlers.tightnessHandler = (event) => {
             const value = Number(event.target.value);
             updateTightnessLabel(value);
             engine.setTightness(value / 100);
-        });
+        };
+        tightnessSlider.addEventListener('input', eventHandlers.tightnessHandler);
 
-        ambienceToggle.addEventListener('change', (event) => {
+        eventHandlers.ambienceHandler = (event) => {
             engine.toggleAmbience(event.target.checked);
-        });
+        };
+        ambienceToggle.addEventListener('change', eventHandlers.ambienceHandler);
 
-        window.addEventListener('pointerdown', () => engine.resume(), { once: true });
+        eventHandlers.resumeHandler = () => engine.resume();
+        window.addEventListener('pointerdown', eventHandlers.resumeHandler, { once: true });
+
+        // Cleanup function
+        window.cleanupDrumKit = () => {
+            eventHandlers.padHandlers.forEach(({ pad, handler }) => {
+                pad.removeEventListener('mousedown', handler);
+                pad.removeEventListener('touchstart', handler);
+            });
+            if (eventHandlers.keydownHandler) {
+                document.removeEventListener('keydown', eventHandlers.keydownHandler);
+            }
+            if (eventHandlers.volumeHandler) {
+                volumeSlider.removeEventListener('input', eventHandlers.volumeHandler);
+            }
+            if (eventHandlers.tightnessHandler) {
+                tightnessSlider.removeEventListener('input', eventHandlers.tightnessHandler);
+            }
+            if (eventHandlers.ambienceHandler) {
+                ambienceToggle.removeEventListener('change', eventHandlers.ambienceHandler);
+            }
+            if (eventHandlers.resumeHandler) {
+                window.removeEventListener('pointerdown', eventHandlers.resumeHandler);
+            }
+            engine.destroy();
+        };
     </script>
 </body>
 </html>
