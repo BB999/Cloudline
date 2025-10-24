@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タッチピアノスタジオ</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg-gradient: radial-gradient(circle at top, rgba(79, 70, 229, 0.45), transparent 60%),
+                radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.4), transparent 55%),
+                linear-gradient(160deg, #050816 0%, #111827 60%, #1f2937 100%);
+            --panel-bg: rgba(15, 23, 42, 0.8);
+            --panel-border: rgba(148, 163, 184, 0.24);
+            --panel-highlight: rgba(129, 140, 248, 0.5);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #38bdf8;
+            --accent-strong: #22d3ee;
+            --key-shadow: 0 24px 40px rgba(15, 23, 42, 0.45);
+            --white-key-color: #f1f5f9;
+            --black-key-color: #1f2937;
+            --active-white: #bae6fd;
+            --active-black: #38bdf8;
+            --radius-lg: 28px;
+            --radius-md: 18px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Inter", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        .app-shell {
+            flex: 1;
+            width: 100%;
+            min-height: 100vh;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+            gap: clamp(1.4rem, 3vw, 2.1rem);
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 0;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            box-shadow: 0 28px 70px rgba(2, 6, 23, 0.6);
+            backdrop-filter: blur(18px);
+            padding: clamp(1.2rem, 3vw, 2.2rem);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-shell::before {
+            content: "";
+            position: absolute;
+            inset: -40% 50% 45% -35%;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.2), transparent 70%);
+            filter: blur(60px);
+            z-index: 0;
+        }
+
+        header {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+            max-width: min(100%, 960px);
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        header h1 {
+            font-size: clamp(2.1rem, 5vw, 2.8rem);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-shadow: 0 18px 40px rgba(15, 23, 42, 0.65);
+        }
+
+        header p {
+            max-width: 720px;
+            color: var(--text-secondary);
+            line-height: 1.8;
+            font-size: clamp(1rem, 2.4vw, 1.1rem);
+        }
+
+        .controls-panel {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.2rem;
+            background: var(--panel-bg);
+            border-radius: var(--radius-md);
+            padding: 1.2rem 1.4rem;
+            border: 1px solid var(--panel-border);
+            max-width: min(100%, 960px);
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .control {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .control label {
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: 0.02em;
+        }
+
+        .control input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+        }
+
+        .control select,
+        .control button {
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 999px;
+            color: var(--text-primary);
+            font-weight: 600;
+            padding: 0.6rem 1rem;
+            font-size: 0.95rem;
+            transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .control button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            cursor: pointer;
+        }
+
+        .control button.active {
+            border-color: var(--accent-strong);
+            box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+            color: var(--accent-strong);
+        }
+
+        .control select:focus,
+        .control button:focus-visible,
+        .key:focus-visible {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+        }
+
+        .keyboard-wrapper {
+            position: relative;
+            z-index: 1;
+            background: var(--panel-bg);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--panel-border);
+            padding: clamp(1rem, 2.8vw, 1.6rem);
+            box-shadow: var(--key-shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            max-width: min(100%, 1200px);
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .keyboard {
+            display: flex;
+            width: 100%;
+            flex: 1;
+            min-height: clamp(420px, 70vh, 820px);
+            user-select: none;
+        }
+
+        .key-group {
+            position: relative;
+            flex: 1;
+            display: flex;
+        }
+
+        .key {
+            position: relative;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            transition: transform 0.05s ease, background 0.2s ease, box-shadow 0.2s ease;
+            padding-bottom: clamp(1.6rem, 4vh, 2.4rem);
+            font-size: clamp(0.95rem, 1.7vw, 1.15rem);
+        }
+
+        .key .note-name {
+            display: block;
+            font-size: clamp(1.1rem, 2vw, 1.3rem);
+            color: #0f172a;
+        }
+
+        .key .note-legend {
+            display: block;
+            font-size: clamp(0.75rem, 1.4vw, 0.95rem);
+            margin-top: 0.2rem;
+            opacity: 0.7;
+            letter-spacing: 0.08em;
+        }
+
+        .key.white {
+            background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 0 0 14px 14px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-right-width: 0.5px;
+            border-left-width: 0.5px;
+        }
+
+        .key.white.active {
+            background: linear-gradient(180deg, var(--active-white) 0%, #f0f9ff 100%);
+            transform: translateY(4px);
+            box-shadow: inset 0 -12px 18px rgba(14, 116, 144, 0.2);
+        }
+
+        .key.black {
+            position: absolute;
+            top: 0;
+            left: 60%;
+            transform: translateX(-50%);
+            width: 64%;
+            height: 64%;
+            background: linear-gradient(180deg, #1f2937 0%, #0f172a 100%);
+            border-radius: 0 0 10px 10px;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            color: #e2e8f0;
+            z-index: 2;
+            padding-bottom: clamp(1.2rem, 3vh, 1.8rem);
+        }
+
+        .key.black .note-name {
+            color: #e2e8f0;
+            font-size: clamp(0.85rem, 1.4vw, 1rem);
+        }
+
+        .key.black.active {
+            background: linear-gradient(180deg, var(--active-black) 0%, #0284c7 100%);
+            transform: translate(-50%, 6px);
+            box-shadow: inset 0 -12px 16px rgba(8, 145, 178, 0.35);
+        }
+
+        .key:active {
+            transform: translateY(4px);
+        }
+
+        .note-display {
+            position: absolute;
+            bottom: clamp(-1rem, -4vw, -1.6rem);
+            right: clamp(1rem, 4vw, 2.5rem);
+            background: rgba(15, 23, 42, 0.75);
+            border-radius: 999px;
+            padding: clamp(0.6rem, 1.5vw, 0.8rem) clamp(1.1rem, 2.8vw, 1.6rem);
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: var(--accent-strong);
+            box-shadow: 0 12px 24px rgba(14, 116, 144, 0.35);
+        }
+
+        .tips {
+            position: relative;
+            z-index: 1;
+            background: rgba(15, 23, 42, 0.55);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 1.4rem 1.6rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+            max-width: min(100%, 960px);
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .tips h2 {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            letter-spacing: 0.04em;
+        }
+
+        .tips ul {
+            padding-left: 1.1rem;
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        footer {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            color: rgba(148, 163, 184, 0.6);
+            font-size: 0.85rem;
+            max-width: min(100%, 960px);
+            margin: 0.4rem auto 0;
+            width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+            .keyboard {
+                min-height: clamp(300px, 60vh, 520px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-shell {
+                padding: clamp(1rem, 4vw, 1.6rem);
+            }
+
+            .controls-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .keyboard-wrapper {
+                padding: clamp(0.8rem, 3vw, 1.1rem);
+            }
+
+            .keyboard {
+                min-height: clamp(320px, 65vh, 620px);
+            }
+
+            .note-display {
+                position: static;
+                margin-top: 1rem;
+                align-self: flex-end;
+            }
+        }
+
+        @media (max-width: 540px) {
+            .app-shell {
+                gap: 1.2rem;
+            }
+
+            header p {
+                font-size: 0.95rem;
+            }
+
+            .keyboard {
+                min-height: clamp(260px, 58vh, 460px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header>
+            <span aria-hidden="true" style="font-size:1.8rem">🎹</span>
+            <h1>タッチピアノスタジオ</h1>
+            <p>スマホやタブレット、PCのキーボードから軽やかにメロディーを奏でましょう。鍵盤をタップすると柔らかなシンセピアノが響きます。録音環境がなくても手軽にメロディーを確認したいときに最適です。</p>
+        </header>
+
+        <section class="controls-panel" aria-label="演奏コントロール">
+            <div class="control">
+                <label for="volumeControl">マスターボリューム</label>
+                <input id="volumeControl" type="range" min="0" max="100" value="70" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70">
+            </div>
+            <div class="control">
+                <label for="waveformSelect">音色（波形）</label>
+                <select id="waveformSelect" aria-label="波形を選択">
+                    <option value="sine">サイン</option>
+                    <option value="triangle" selected>トライアングル</option>
+                    <option value="square">スクエア</option>
+                    <option value="sawtooth">ノコギリ</option>
+                </select>
+            </div>
+            <div class="control">
+                <label for="sustainToggle">サステイン</label>
+                <button id="sustainToggle" type="button" aria-pressed="false">オフ</button>
+            </div>
+        </section>
+
+        <section class="keyboard-wrapper">
+            <div class="keyboard" id="keyboard" aria-label="ピアノ鍵盤"></div>
+            <div class="note-display" id="noteDisplay" aria-live="polite">Ready ♪</div>
+        </section>
+
+        <section class="tips" aria-label="操作のヒント">
+            <h2>演奏のヒント</h2>
+            <ul>
+                <li>タッチまたはクリックで鍵盤を押すと、その音が鳴ります。離すと自然に余韻が消えます。</li>
+                <li>PCではキーボード操作にも対応。ホームポジションの <strong>A S D F G H J K</strong> などで白鍵を演奏できます。</li>
+                <li>サステインをオンにするとリリースが長くなり、しっとりとした余韻が残ります。</li>
+                <li>ボリュームと波形を組み合わせて、自分好みの音色を探してみましょう。</li>
+            </ul>
+        </section>
+
+        <footer>Made for quick inspiration &middot; 2025 Cloudline Apps Lab</footer>
+    </div>
+
+    <script>
+        const KEY_LAYOUT = [
+            { white: { note: 'C4', label: 'ド' }, black: { note: 'C#4', label: 'ド♯' } },
+            { white: { note: 'D4', label: 'レ' }, black: { note: 'D#4', label: 'レ♯' } },
+            { white: { note: 'E4', label: 'ミ' } },
+            { white: { note: 'F4', label: 'ファ' }, black: { note: 'F#4', label: 'ファ♯' } },
+            { white: { note: 'G4', label: 'ソ' }, black: { note: 'G#4', label: 'ソ♯' } },
+            { white: { note: 'A4', label: 'ラ' }, black: { note: 'A#4', label: 'ラ♯' } },
+            { white: { note: 'B4', label: 'シ' } },
+            { white: { note: 'C5', label: 'ド' }, black: { note: 'C#5', label: 'ド♯' } },
+            { white: { note: 'D5', label: 'レ' }, black: { note: 'D#5', label: 'レ♯' } },
+            { white: { note: 'E5', label: 'ミ' } },
+            { white: { note: 'F5', label: 'ファ' }, black: { note: 'F#5', label: 'ファ♯' } },
+            { white: { note: 'G5', label: 'ソ' }, black: { note: 'G#5', label: 'ソ♯' } },
+            { white: { note: 'A5', label: 'ラ' }, black: { note: 'A#5', label: 'ラ♯' } },
+            { white: { note: 'B5', label: 'シ' } },
+            { white: { note: 'C6', label: 'ド' } }
+        ];
+
+        const KEYBOARD_MAP = {
+            'a': 'C4',
+            'w': 'C#4',
+            's': 'D4',
+            'e': 'D#4',
+            'd': 'E4',
+            'f': 'F4',
+            't': 'F#4',
+            'g': 'G4',
+            'y': 'G#4',
+            'h': 'A4',
+            'u': 'A#4',
+            'j': 'B4',
+            'k': 'C5',
+            'o': 'C#5',
+            'l': 'D5',
+            'p': 'D#5',
+            ';': 'E5',
+            "'": 'F5',
+            '[': 'F#5',
+            ']': 'G5',
+            '\\': 'G#5',
+            'z': 'A5',
+            'x': 'A#5',
+            'c': 'B5',
+            'v': 'C6'
+        };
+
+        const KEY_HINTS = Object.entries(KEYBOARD_MAP).reduce((acc, [key, note]) => {
+            acc[note] = key.toUpperCase();
+            return acc;
+        }, {});
+
+        const keyboardEl = document.getElementById('keyboard');
+        const noteDisplayEl = document.getElementById('noteDisplay');
+        const volumeControl = document.getElementById('volumeControl');
+        const waveformSelect = document.getElementById('waveformSelect');
+        const sustainToggle = document.getElementById('sustainToggle');
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const masterGain = audioContext.createGain();
+        masterGain.connect(audioContext.destination);
+        masterGain.gain.value = 0.7;
+
+        let currentWaveform = waveformSelect.value;
+        let sustainActive = false;
+        const activeNotes = new Map();
+
+        function noteToFrequency(note) {
+            const match = note.match(/^([A-G])(#?)(\d)$/);
+            if (!match) return null;
+            const [, base, sharp, octaveStr] = match;
+            const octave = parseInt(octaveStr, 10);
+            const noteKey = sharp ? `${base}#` : base;
+            const SEMITONE_OFFSETS = {
+                'C': -9,
+                'C#': -8,
+                'D': -7,
+                'D#': -6,
+                'E': -5,
+                'F': -4,
+                'F#': -3,
+                'G': -2,
+                'G#': -1,
+                'A': 0,
+                'A#': 1,
+                'B': 2
+            };
+            const semitone = SEMITONE_OFFSETS[noteKey] + (octave - 4) * 12;
+            return 440 * Math.pow(2, semitone / 12);
+        }
+
+        const FREQUENCIES = {};
+        KEY_LAYOUT.forEach(group => {
+            const notes = [group.white.note];
+            if (group.black) notes.push(group.black.note);
+            notes.forEach(note => {
+                if (!FREQUENCIES[note]) {
+                    FREQUENCIES[note] = noteToFrequency(note);
+                }
+            });
+        });
+
+        function updateNoteDisplay(message) {
+            noteDisplayEl.textContent = message;
+        }
+
+        function setKeyActive(note, active) {
+            const keyEl = keyboardEl.querySelector(`[data-note="${note}"]`);
+            if (keyEl) {
+                keyEl.classList.toggle('active', active);
+            }
+        }
+
+        function startNote(note) {
+            const frequency = FREQUENCIES[note];
+            if (!frequency) return;
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            if (activeNotes.has(note)) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            const now = audioContext.currentTime;
+
+            oscillator.type = currentWaveform;
+            oscillator.frequency.setValueAtTime(frequency, now);
+
+            gainNode.gain.setValueAtTime(0.0001, now);
+            gainNode.gain.exponentialRampToValueAtTime(1, now + 0.02);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(masterGain);
+            oscillator.start(now);
+
+            activeNotes.set(note, { oscillator, gainNode });
+            setKeyActive(note, true);
+            updateNoteDisplay(`${note} ♪`);
+        }
+
+        function stopNote(note) {
+            const voice = activeNotes.get(note);
+            if (!voice) return;
+            const now = audioContext.currentTime;
+            const releaseTime = sustainActive ? 1.2 : 0.35;
+
+            voice.gainNode.gain.cancelScheduledValues(now);
+            voice.gainNode.gain.setValueAtTime(voice.gainNode.gain.value || 0.0001, now);
+            voice.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + releaseTime);
+            voice.oscillator.stop(now + releaseTime + 0.05);
+
+            setTimeout(() => {
+                setKeyActive(note, false);
+                if (!activeNotes.size) {
+                    updateNoteDisplay('Ready ♪');
+                }
+            }, releaseTime * 1000);
+
+            activeNotes.delete(note);
+        }
+
+        function createKeyElement(noteInfo, type) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `key ${type}`;
+            button.dataset.note = noteInfo.note;
+
+            const keyHint = KEY_HINTS[noteInfo.note] || '';
+            button.innerHTML = `
+                <span class="note-name">${noteInfo.label}</span>
+                <span class="note-legend">${keyHint}</span>
+            `;
+
+            button.addEventListener('pointerdown', event => {
+                if (event.button !== undefined && event.button !== 0 && event.pointerType !== 'touch') return;
+                event.preventDefault();
+                startNote(noteInfo.note);
+                button.setPointerCapture(event.pointerId);
+                button.dataset.pointerId = event.pointerId;
+            });
+
+            const stopInteraction = event => {
+                const storedId = button.dataset.pointerId ? Number(button.dataset.pointerId) : null;
+                if (storedId !== null && storedId !== event.pointerId) {
+                    return;
+                }
+                stopNote(noteInfo.note);
+                if (storedId !== null) {
+                    try {
+                        button.releasePointerCapture(storedId);
+                    } catch (_) {
+                        // ignore
+                    }
+                    delete button.dataset.pointerId;
+                }
+            };
+
+            button.addEventListener('pointerup', stopInteraction);
+            button.addEventListener('pointercancel', stopInteraction);
+            button.addEventListener('pointerleave', event => {
+                if (!button.dataset.pointerId) return;
+                if (event.pressure === 0 && !event.buttons) {
+                    stopInteraction(event);
+                }
+            });
+
+            return button;
+        }
+
+        KEY_LAYOUT.forEach(group => {
+            const groupEl = document.createElement('div');
+            groupEl.className = 'key-group';
+
+            const whiteKey = createKeyElement(group.white, 'white');
+            groupEl.appendChild(whiteKey);
+
+            if (group.black) {
+                const blackKey = createKeyElement(group.black, 'black');
+                groupEl.appendChild(blackKey);
+            }
+
+            keyboardEl.appendChild(groupEl);
+        });
+
+        volumeControl.addEventListener('input', event => {
+            const value = Number(event.target.value);
+            masterGain.gain.value = value / 100;
+            volumeControl.setAttribute('aria-valuenow', String(value));
+        });
+
+        waveformSelect.addEventListener('change', event => {
+            currentWaveform = event.target.value;
+        });
+
+        sustainToggle.addEventListener('click', () => {
+            sustainActive = !sustainActive;
+            sustainToggle.classList.toggle('active', sustainActive);
+            sustainToggle.textContent = sustainActive ? 'オン' : 'オフ';
+            sustainToggle.setAttribute('aria-pressed', String(sustainActive));
+        });
+
+        window.addEventListener('keydown', event => {
+            if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) return;
+            const note = KEYBOARD_MAP[event.key.toLowerCase()];
+            if (!note) return;
+            event.preventDefault();
+            if (event.repeat) return;
+            startNote(note);
+        });
+
+        window.addEventListener('keyup', event => {
+            const note = KEYBOARD_MAP[event.key.toLowerCase()];
+            if (!note) return;
+            event.preventDefault();
+            stopNote(note);
+        });
+
+        window.addEventListener('blur', () => {
+            [...activeNotes.keys()].forEach(stopNote);
+        });
+    </script>
+</body>
+</html>
