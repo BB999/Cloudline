@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ガソリン代計算マップ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>ガソリン代計算マップ</h1>
+      <p>Googleマップ上でルートを確認しながら移動に必要なガソリン代を計算できます。</p>
+    </header>
+
+    <main class="app-main">
+      <section class="card form-card">
+        <form id="fuel-form">
+          <div class="input-group">
+            <label for="origin">出発地</label>
+            <input
+              type="text"
+              id="origin"
+              name="origin"
+              placeholder="例: 東京駅"
+              autocomplete="off"
+              required
+            />
+          </div>
+          <div class="input-group">
+            <label for="destination">到着地</label>
+            <input
+              type="text"
+              id="destination"
+              name="destination"
+              placeholder="例: 大阪駅"
+              autocomplete="off"
+              required
+            />
+          </div>
+          <div class="input-row">
+            <div class="input-group">
+              <label for="efficiency">燃費 (km/L)</label>
+              <input
+                type="number"
+                id="efficiency"
+                name="efficiency"
+                min="0"
+                step="0.1"
+                value="12"
+                required
+              />
+            </div>
+            <div class="input-group">
+              <label for="price">ガソリン価格 (円/L)</label>
+              <input
+                type="number"
+                id="price"
+                name="price"
+                min="0"
+                step="1"
+                value="170"
+                required
+              />
+            </div>
+          </div>
+          <button type="submit" class="primary-button">ガソリン代を計算</button>
+        </form>
+        <div id="message" role="alert" aria-live="polite"></div>
+        <dl class="results" id="results" hidden>
+          <div class="result-item">
+            <dt>総距離</dt>
+            <dd id="total-distance">-</dd>
+          </div>
+          <div class="result-item">
+            <dt>必要なガソリン量</dt>
+            <dd id="fuel-needed">-</dd>
+          </div>
+          <div class="result-item">
+            <dt>ガソリン代</dt>
+            <dd id="fuel-cost">-</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card map-card">
+        <div id="map" role="application" aria-label="ルートマップ"></div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>
+        ※ Google Maps JavaScript API の利用には API キーが必要です。<br />
+        以下のスクリプト URL の <code>YOUR_GOOGLE_MAPS_API_KEY</code> を置き換えてご利用ください。
+      </p>
+    </footer>
+
+    <script src="app.js"></script>
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places&callback=initMap"
+      async
+      defer
+      onerror="handleMapLoadError()"
+    ></script>
+  </body>
+</html>
