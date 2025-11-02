@@ -219,6 +219,19 @@
             backdrop-filter: blur(10px);
         }
 
+        .tips-heading {
+            margin-top: 1.5rem;
+            font-size: 1.2rem;
+            letter-spacing: 0.04em;
+            color: var(--text-soft);
+        }
+
+        .score-note {
+            margin-top: 0.35rem;
+            color: var(--text-soft);
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 720px) {
             body {
                 padding: 1.25rem;
@@ -247,7 +260,7 @@
                 <button id="undoBtn" class="secondary">やり直す</button>
             </div>
 
-            <h2 style="margin-top:1.5rem;font-size:1.2rem;letter-spacing:0.04em;color:var(--text-soft);">攻略ヒント</h2>
+            <h2 class="tips-heading">攻略ヒント</h2>
             <ul class="tips">
                 <li>スタート地点とゴール地点をしっかり重ねよう。</li>
                 <li>なるべく一定の速度で描くと精度が上がるよ。</li>
@@ -266,7 +279,7 @@
                 <div class="score-card">
                     <div class="score-label">正円率</div>
                     <div class="score-value" id="scoreValue">--%</div>
-                    <p style="margin-top:0.35rem;color:var(--text-soft);font-size:0.9rem;">描き終えるとスコアが表示されます</p>
+                    <p class="score-note">描き終えるとスコアが表示されます</p>
                 </div>
                 <div class="metrics">
                     <div class="metric">
@@ -355,8 +368,8 @@
         function screenToCanvas(event) {
             const rect = canvas.getBoundingClientRect();
             return {
-                x: (event.clientX - rect.left) / dpr,
-                y: (event.clientY - rect.top) / dpr
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top
             };
         }
 
@@ -467,6 +480,7 @@
             points = [];
             redraw();
             scoreValue.textContent = '--%';
+            scoreValue.classList.remove('new-best');
             radiusStability.textContent = '--%';
             closureEl.textContent = '--%';
             coverageEl.textContent = '--%';
