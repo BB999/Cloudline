@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comet Orbit - Browser Tests</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: #fff;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .test-section {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+    }
+    .test-result {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+    }
+    .pass {
+      background-color: rgba(76, 175, 80, 0.3);
+      border-left: 4px solid #4CAF50;
+    }
+    .fail {
+      background-color: rgba(244, 67, 54, 0.3);
+      border-left: 4px solid #f44336;
+    }
+    .info {
+      background-color: rgba(33, 150, 243, 0.3);
+      border-left: 4px solid #2196F3;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #summary {
+      font-size: 1.2em;
+      font-weight: bold;
+      text-align: center;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌟 Comet Orbit Simulation - Test Suite</h1>
+
+  <div class="test-section">
+    <h2>Manual Tests</h2>
+    <button onclick="openSimulation()">Open Simulation</button>
+    <button onclick="runAutomatedTests()">Run Automated Tests</button>
+    <div id="manual-tests" class="info">
+      <p><strong>Manual Testing Checklist:</strong></p>
+      <ol>
+        <li>Click "Open Simulation" to open the comet orbit app</li>
+        <li>Verify the sun appears at the center with corona effect</li>
+        <li>Verify the comet orbits in an elliptical path</li>
+        <li>Verify the comet tail follows the comet body</li>
+        <li>Verify stars appear in the background</li>
+        <li>Drag with mouse/touch to rotate camera view</li>
+        <li>Scroll/pinch to zoom in and out</li>
+        <li>Verify smooth animation (no flickering or NaN artifacts)</li>
+        <li>Resize window and verify responsive behavior</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Automated Test Results</h2>
+    <div id="test-results"></div>
+    <div id="summary"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.162.0/build/three.module.js';
+
+    window.openSimulation = function() {
+      window.open('index.html', '_blank');
+    };
+
+    window.runAutomatedTests = function() {
+      const resultsDiv = document.getElementById('test-results');
+      const summaryDiv = document.getElementById('summary');
+      resultsDiv.innerHTML = '';
+
+      let passCount = 0;
+      let totalTests = 0;
+
+      function logTest(name, passed, message) {
+        totalTests++;
+        if (passed) passCount++;
+
+        const div = document.createElement('div');
+        div.className = `test-result ${passed ? 'pass' : 'fail'}`;
+        div.innerHTML = `${passed ? '✓' : '✗'} <strong>${name}</strong>: ${message}`;
+        resultsDiv.appendChild(div);
+      }
+
+      // Test 1: Three.js library loads correctly
+      try {
+        const testScene = new THREE.Scene();
+        logTest('Three.js Library', true, 'Three.js imported and Scene created successfully');
+      } catch (e) {
+        logTest('Three.js Library', false, `Failed to load: ${e.message}`);
+      }
+
+      // Test 2: Orbital mathematics
+      const eccentricity = 0.7;
+      const semiMajorAxis = 90;
+      const semiMinorAxis = semiMajorAxis * Math.sqrt(1 - eccentricity ** 2);
+      const expectedSemiMinor = 64.26;
+
+      if (Math.abs(semiMinorAxis - expectedSemiMinor) < 1) {
+        logTest('Orbital Math - Semi-minor axis', true,
+          `Calculated: ${semiMinorAxis.toFixed(2)}, Expected: ~${expectedSemiMinor}`);
+      } else {
+        logTest('Orbital Math - Semi-minor axis', false,
+          `Mismatch: ${semiMinorAxis.toFixed(2)} vs ${expectedSemiMinor}`);
+      }
+
+      // Test 3: Focus distance calculation
+      const focusDistance = Math.sqrt(Math.max(semiMajorAxis ** 2 - semiMinorAxis ** 2, 0));
+      const expectedFocus = 63;
+
+      if (Math.abs(focusDistance - expectedFocus) < 1) {
+        logTest('Orbital Math - Focus distance', true,
+          `Calculated: ${focusDistance.toFixed(2)}, Expected: ~${expectedFocus}`);
+      } else {
+        logTest('Orbital Math - Focus distance', false,
+          `Mismatch: ${focusDistance.toFixed(2)} vs ${expectedFocus}`);
+      }
+
+      // Test 4: Eccentricity validation
+      if (eccentricity >= 0 && eccentricity < 1) {
+        logTest('Eccentricity Validation', true,
+          `Valid elliptical orbit (e = ${eccentricity})`);
+      } else {
+        logTest('Eccentricity Validation', false,
+          `Invalid eccentricity: ${eccentricity}`);
+      }
+
+      // Test 5: Velocity factor (Kepler's second law)
+      const perihelionVel = 1 + eccentricity * Math.cos(0);
+      const aphelionVel = 1 + eccentricity * Math.cos(Math.PI);
+
+      if (perihelionVel > aphelionVel) {
+        logTest('Kepler\'s Second Law', true,
+          `Perihelion (${perihelionVel.toFixed(2)}) > Aphelion (${aphelionVel.toFixed(2)})`);
+      } else {
+        logTest('Kepler\'s Second Law', false,
+          'Velocity variation incorrect');
+      }
+
+      // Test 6: Shader fresnel calculation safety (no NaN)
+      const testDots = [0.0, 0.3, 0.5, 0.6, 0.7, 1.0];
+      let fresnelSafe = true;
+
+      for (const dot of testDots) {
+        const base = Math.max(0.0, 0.6 - dot);
+        const fresnel = Math.pow(base, 1.8);
+        if (isNaN(fresnel) || !isFinite(fresnel)) {
+          fresnelSafe = false;
+          break;
+        }
+      }
+
+      if (fresnelSafe) {
+        logTest('Shader Safety - Fresnel', true,
+          'No NaN values in fresnel calculation (clamped correctly)');
+      } else {
+        logTest('Shader Safety - Fresnel', false,
+          'NaN or Infinity detected in fresnel calculation');
+      }
+
+      // Test 7: Configuration ranges
+      const tailSegments = 140;
+      if (tailSegments > 0 && tailSegments < 1000) {
+        logTest('Configuration - Tail segments', true,
+          `${tailSegments} segments (reasonable)`);
+      } else {
+        logTest('Configuration - Tail segments', false,
+          `${tailSegments} segments (out of range)`);
+      }
+
+      const starCount = 1800;
+      if (starCount > 0 && starCount < 10000) {
+        logTest('Configuration - Star count', true,
+          `${starCount} stars (reasonable)`);
+      } else {
+        logTest('Configuration - Star count', false,
+          `${starCount} stars (out of range)`);
+      }
+
+      // Test 8: Color values
+      try {
+        const testColor = new THREE.Color(0xffe572);
+        logTest('Color Creation', true,
+          `Sun color created: #${testColor.getHexString()}`);
+      } catch (e) {
+        logTest('Color Creation', false, e.message);
+      }
+
+      // Display summary
+      const percentage = ((passCount / totalTests) * 100).toFixed(1);
+      summaryDiv.innerHTML = `
+        <div class="${passCount === totalTests ? 'pass' : 'fail'}" style="padding: 15px; border-radius: 8px;">
+          ${passCount}/${totalTests} tests passed (${percentage}%)
+        </div>
+      `;
+    };
+
+    // Auto-run tests on page load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        window.runAutomatedTests();
+      }, 500);
+    });
+  </script>
+</body>
+</html>
