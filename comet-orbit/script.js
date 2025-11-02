@@ -84,7 +84,6 @@ function animate() {
   comet.coma.material.opacity = THREE.MathUtils.lerp(0.15, 0.65, 1 - distanceToSun / (cometState.semiMajorAxis * 1.6));
 
   comet.tail.material.size = THREE.MathUtils.lerp(1.2, 2.4, 1 - distanceToSun / (cometState.semiMajorAxis * 1.6));
-  comet.tail.material.needsUpdate = true;
 
   sun.group.rotation.y += delta * 0.04;
   sun.coronaMaterial.uniforms.time.value += delta * 0.8;
@@ -145,7 +144,7 @@ function createSun() {
       uniform vec3 color;
       uniform float time;
       void main() {
-        float fresnel = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 1.8);
+        float fresnel = pow(max(0.0, 0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0))), 1.8);
         float pulse = 0.7 + 0.3 * sin(time * 0.8 + dot(vNormal, vNormal) * 4.0);
         gl_FragColor = vec4(color, 1.0) * fresnel * pulse;
       }
@@ -248,6 +247,7 @@ function createCometTail() {
   });
 
   const points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
   points.userData.tailSegments = tailSegments;
   points.userData.positions = positions;
 
