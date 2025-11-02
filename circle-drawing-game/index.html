@@ -113,6 +113,10 @@
             text-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
         }
 
+        .score-value.new-best::after {
+            content: ' 🎉';
+        }
+
         .score-label {
             text-transform: uppercase;
             letter-spacing: 0.18em;
@@ -293,10 +297,18 @@
         const undoBtn = document.getElementById('undoBtn');
         const bestScoreBadge = document.getElementById('bestScoreBadge');
 
+        // Constants
+        const MIN_POINTS = 12;
+        const WEIGHT_STABILITY = 0.6;
+        const WEIGHT_CLOSURE = 0.2;
+        const WEIGHT_COVERAGE = 0.2;
+        const SCORE_SCALE = 100;
+
         let drawing = false;
         let points = [];
         let strokes = [];
-        let bestScore = Number.parseFloat(localStorage.getItem('circleGameBestScore')) || 0;
+        let bestScore = parseFloat(localStorage.getItem('circleGameBestScore')) || 0;
+        let rafId = null;
 
         const dpr = window.devicePixelRatio || 1;
 
@@ -343,8 +355,8 @@
         function screenToCanvas(event) {
             const rect = canvas.getBoundingClientRect();
             return {
-                x: (event.clientX - rect.left),
-                y: (event.clientY - rect.top)
+                x: (event.clientX - rect.left) / dpr,
+                y: (event.clientY - rect.top) / dpr
             };
         }
 
@@ -355,7 +367,11 @@
             updateMetrics();
             const point = screenToCanvas(event);
             points.push(point);
-            canvas.setPointerCapture(event.pointerId);
+            try {
+                canvas.setPointerCapture(event.pointerId);
+            } catch (e) {
+                // Pointer capture not available
+            }
             redraw();
         }
 
@@ -363,15 +379,25 @@
             if (!drawing) return;
             const point = screenToCanvas(event);
             points.push(point);
-            redraw();
+            if (!rafId) {
+                rafId = requestAnimationFrame(() => {
+                    redraw();
+                    rafId = null;
+                });
+            }
         }
 
         function endDrawing(event) {
             if (!drawing) return;
             drawing = false;
-            canvas.releasePointerCapture(event.pointerId);
-            if (points.length < 12) {
+            try {
+                canvas.releasePointerCapture(event.pointerId);
+            } catch (e) {
+                // Pointer capture not available
+            }
+            if (points.length < MIN_POINTS) {
                 scoreValue.textContent = '点が少なすぎます';
+                resetCanvas();
                 return;
             }
             evaluateCircle(points);
@@ -407,14 +433,15 @@
                 if (gap > maxGap) maxGap = gap;
             }
             // wrap-around gap
-            const wrapGap = (Math.PI * 2 - (angles[angles.length - 1] - angles[0]));
+            const wrapGap = (angles[0] + Math.PI * 2 - angles[angles.length - 1]);
             if (wrapGap > maxGap) maxGap = wrapGap;
             const coverageScore = Math.max(0, 1 - maxGap / (Math.PI * 2));
 
-            const totalError = (1 - stability) * 0.6 + (1 - closureScore) * 0.2 + (1 - coverageScore) * 0.2;
-            const finalScore = Math.max(0, 100 * (1 - totalError));
+            const totalError = (1 - stability) * WEIGHT_STABILITY + (1 - closureScore) * WEIGHT_CLOSURE + (1 - coverageScore) * WEIGHT_COVERAGE;
+            const finalScore = Math.max(0, SCORE_SCALE * (1 - totalError));
 
             scoreValue.textContent = finalScore.toFixed(1) + '%';
+            scoreValue.classList.remove('new-best');
             radiusStability.textContent = Math.round(stability * 100) + '%';
             closureEl.textContent = Math.round(closureScore * 100) + '%';
             coverageEl.textContent = Math.round(coverageScore * 100) + '%';
@@ -423,7 +450,7 @@
                 bestScore = finalScore;
                 localStorage.setItem('circleGameBestScore', finalScore.toFixed(1));
                 renderBestScore();
-                scoreValue.textContent += ' 🎉';
+                scoreValue.classList.add('new-best');
             }
         }
 
@@ -447,7 +474,7 @@
 
         function undoLastStroke() {
             strokes.pop();
-            points = [];
+            points = strokes.length > 0 ? strokes[strokes.length - 1] : [];
             redraw();
             updateMetrics();
         }
