@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>フリーハンド真円チャレンジ</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: "Inter", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+            --bg: radial-gradient(circle at top, #1e293b 0%, #0f172a 35%, #030712 100%);
+            --panel: rgba(15, 23, 42, 0.75);
+            --accent: #38bdf8;
+            --accent-soft: rgba(56, 189, 248, 0.2);
+            --text-strong: #e2e8f0;
+            --text-soft: #94a3b8;
+            --radius-lg: 22px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(1.5rem, 3vw, 2.5rem);
+            color: var(--text-strong);
+        }
+
+        main {
+            width: min(1080px, 100%);
+            display: grid;
+            gap: clamp(1.25rem, 3vw, 2rem);
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            align-items: start;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: var(--radius-lg);
+            padding: clamp(1.25rem, 2.5vw, 1.75rem);
+            box-shadow: 0 25px 60px rgba(2, 6, 23, 0.55);
+            backdrop-filter: blur(18px);
+        }
+
+        header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+
+        h1 {
+            font-size: clamp(1.85rem, 5vw, 2.45rem);
+            font-weight: 700;
+            letter-spacing: 0.015em;
+        }
+
+        p.description {
+            color: var(--text-soft);
+            line-height: 1.7;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: var(--radius-lg);
+            border: 1px dashed rgba(148, 163, 184, 0.2);
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        .guide-circle {
+            position: absolute;
+            inset: 8%;
+            border-radius: 50%;
+            border: 1.5px dashed rgba(56, 189, 248, 0.35);
+            pointer-events: none;
+        }
+
+        .stats {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .score-card {
+            padding: 1.25rem;
+            border-radius: 18px;
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.08);
+            text-align: center;
+        }
+
+        .score-value {
+            font-size: clamp(2.75rem, 7vw, 3.75rem);
+            font-weight: 700;
+            color: var(--accent);
+            text-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
+        }
+
+        .score-label {
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            font-size: 0.8rem;
+            color: rgba(148, 163, 184, 0.85);
+        }
+
+        .metrics {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .metric {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 1rem;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            font-size: 0.95rem;
+        }
+
+        .metric span:last-child {
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+        }
+
+        button {
+            appearance: none;
+            border: none;
+            border-radius: 999px;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.8), rgba(59, 130, 246, 0.9));
+            color: #0f172a;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 18px 35px rgba(37, 99, 235, 0.35);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 22px 45px rgba(37, 99, 235, 0.45);
+        }
+
+        button.secondary {
+            background: rgba(15, 23, 42, 0.85);
+            color: var(--text-strong);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            box-shadow: none;
+        }
+
+        ul.tips {
+            list-style: none;
+            display: grid;
+            gap: 0.6rem;
+            color: var(--text-soft);
+            line-height: 1.6;
+        }
+
+        ul.tips li::before {
+            content: "•";
+            color: var(--accent);
+            margin-right: 0.5rem;
+        }
+
+        .best-score {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--accent);
+            padding: 0.35rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        .floating-hint {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            padding: 0.55rem 1rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.04em;
+            backdrop-filter: blur(10px);
+        }
+
+        @media (max-width: 720px) {
+            body {
+                padding: 1.25rem;
+            }
+
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="panel">
+            <header>
+                <span class="best-score" id="bestScoreBadge">ベストスコア: --%</span>
+                <h1>フリーハンド真円チャレンジ</h1>
+                <p class="description">
+                    指やマウスで円を描いて、どれだけ真円に近いかスコア判定！
+                    描き終えたら自動で採点されるので、何度も挑戦してベストスコアを更新しよう。
+                </p>
+            </header>
+
+            <div class="actions">
+                <button id="resetBtn">リセット</button>
+                <button id="undoBtn" class="secondary">やり直す</button>
+            </div>
+
+            <h2 style="margin-top:1.5rem;font-size:1.2rem;letter-spacing:0.04em;color:var(--text-soft);">攻略ヒント</h2>
+            <ul class="tips">
+                <li>スタート地点とゴール地点をしっかり重ねよう。</li>
+                <li>なるべく一定の速度で描くと精度が上がるよ。</li>
+                <li>中心を意識しながら半径を揃えるのがコツ！</li>
+            </ul>
+        </section>
+
+        <section class="panel">
+            <div class="canvas-wrapper">
+                <div class="floating-hint">丸を描いてみよう！</div>
+                <div class="guide-circle"></div>
+                <canvas id="drawCanvas"></canvas>
+            </div>
+
+            <div class="stats">
+                <div class="score-card">
+                    <div class="score-label">正円率</div>
+                    <div class="score-value" id="scoreValue">--%</div>
+                    <p style="margin-top:0.35rem;color:var(--text-soft);font-size:0.9rem;">描き終えるとスコアが表示されます</p>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <span>半径の安定度</span>
+                        <span id="radiusStability">--%</span>
+                    </div>
+                    <div class="metric">
+                        <span>円の閉じ具合</span>
+                        <span id="closure">--%</span>
+                    </div>
+                    <div class="metric">
+                        <span>カバレッジ</span>
+                        <span id="coverage">--%</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreValue = document.getElementById('scoreValue');
+        const radiusStability = document.getElementById('radiusStability');
+        const closureEl = document.getElementById('closure');
+        const coverageEl = document.getElementById('coverage');
+        const resetBtn = document.getElementById('resetBtn');
+        const undoBtn = document.getElementById('undoBtn');
+        const bestScoreBadge = document.getElementById('bestScoreBadge');
+
+        let drawing = false;
+        let points = [];
+        let strokes = [];
+        let bestScore = Number.parseFloat(localStorage.getItem('circleGameBestScore')) || 0;
+
+        const dpr = window.devicePixelRatio || 1;
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+            redraw();
+        }
+
+        function clearCanvas() {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+        }
+
+        function redraw() {
+            clearCanvas();
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#38bdf8';
+            ctx.shadowColor = 'rgba(56, 189, 248, 0.4)';
+            ctx.shadowBlur = 8;
+
+            for (const stroke of strokes) {
+                ctx.beginPath();
+                stroke.forEach((point, index) => {
+                    if (index === 0) {
+                        ctx.moveTo(point.x, point.y);
+                    } else {
+                        ctx.lineTo(point.x, point.y);
+                    }
+                });
+                ctx.stroke();
+            }
+        }
+
+        function screenToCanvas(event) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (event.clientX - rect.left),
+                y: (event.clientY - rect.top)
+            };
+        }
+
+        function startDrawing(event) {
+            drawing = true;
+            points = [];
+            strokes = [points];
+            updateMetrics();
+            const point = screenToCanvas(event);
+            points.push(point);
+            canvas.setPointerCapture(event.pointerId);
+            redraw();
+        }
+
+        function draw(event) {
+            if (!drawing) return;
+            const point = screenToCanvas(event);
+            points.push(point);
+            redraw();
+        }
+
+        function endDrawing(event) {
+            if (!drawing) return;
+            drawing = false;
+            canvas.releasePointerCapture(event.pointerId);
+            if (points.length < 12) {
+                scoreValue.textContent = '点が少なすぎます';
+                return;
+            }
+            evaluateCircle(points);
+        }
+
+        function evaluateCircle(points) {
+            const n = points.length;
+            let sumX = 0;
+            let sumY = 0;
+            points.forEach(p => {
+                sumX += p.x;
+                sumY += p.y;
+            });
+            const centerX = sumX / n;
+            const centerY = sumY / n;
+
+            const radii = points.map(p => Math.hypot(p.x - centerX, p.y - centerY));
+            const meanRadius = radii.reduce((acc, r) => acc + r, 0) / n;
+            const variance = radii.reduce((acc, r) => acc + Math.pow(r - meanRadius, 2), 0) / n;
+            const stdDev = Math.sqrt(variance);
+            const stability = Math.max(0, 1 - (stdDev / (meanRadius || 1)));
+
+            const start = points[0];
+            const end = points[points.length - 1];
+            const closureDist = Math.hypot(start.x - end.x, start.y - end.y);
+            const closureScore = Math.max(0, 1 - Math.min(1, closureDist / (meanRadius || 1)));
+
+            const angles = points.map(p => Math.atan2(p.y - centerY, p.x - centerX));
+            angles.sort((a, b) => a - b);
+            let maxGap = 0;
+            for (let i = 0; i < angles.length - 1; i++) {
+                const gap = angles[i + 1] - angles[i];
+                if (gap > maxGap) maxGap = gap;
+            }
+            // wrap-around gap
+            const wrapGap = (Math.PI * 2 - (angles[angles.length - 1] - angles[0]));
+            if (wrapGap > maxGap) maxGap = wrapGap;
+            const coverageScore = Math.max(0, 1 - maxGap / (Math.PI * 2));
+
+            const totalError = (1 - stability) * 0.6 + (1 - closureScore) * 0.2 + (1 - coverageScore) * 0.2;
+            const finalScore = Math.max(0, 100 * (1 - totalError));
+
+            scoreValue.textContent = finalScore.toFixed(1) + '%';
+            radiusStability.textContent = Math.round(stability * 100) + '%';
+            closureEl.textContent = Math.round(closureScore * 100) + '%';
+            coverageEl.textContent = Math.round(coverageScore * 100) + '%';
+
+            if (finalScore > bestScore) {
+                bestScore = finalScore;
+                localStorage.setItem('circleGameBestScore', finalScore.toFixed(1));
+                renderBestScore();
+                scoreValue.textContent += ' 🎉';
+            }
+        }
+
+        function renderBestScore() {
+            if (bestScore > 0) {
+                bestScoreBadge.textContent = `ベストスコア: ${bestScore.toFixed(1)}%`;
+            } else {
+                bestScoreBadge.textContent = 'ベストスコア: --%';
+            }
+        }
+
+        function resetCanvas() {
+            strokes = [];
+            points = [];
+            redraw();
+            scoreValue.textContent = '--%';
+            radiusStability.textContent = '--%';
+            closureEl.textContent = '--%';
+            coverageEl.textContent = '--%';
+        }
+
+        function undoLastStroke() {
+            strokes.pop();
+            points = [];
+            redraw();
+            updateMetrics();
+        }
+
+        function updateMetrics() {
+            scoreValue.textContent = '--%';
+            radiusStability.textContent = '--%';
+            closureEl.textContent = '--%';
+            coverageEl.textContent = '--%';
+        }
+
+        canvas.addEventListener('pointerdown', startDrawing);
+        canvas.addEventListener('pointermove', draw);
+        canvas.addEventListener('pointerup', endDrawing);
+        canvas.addEventListener('pointerleave', endDrawing);
+
+        resetBtn.addEventListener('click', resetCanvas);
+        undoBtn.addEventListener('click', undoLastStroke);
+
+        window.addEventListener('resize', resizeCanvas);
+
+        renderBestScore();
+        resizeCanvas();
+    </script>
+</body>
+</html>
