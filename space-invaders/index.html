@@ -372,6 +372,12 @@
         // ===============================
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            alert('Canvas is not supported in this browser. Please use a modern browser.');
+            throw new Error('Canvas context not available');
+        }
+
         const WIDTH = canvas.width;
         const HEIGHT = canvas.height;
 
@@ -390,16 +396,18 @@
         const BARRIER_HEIGHT = 40;
         const UFO_WIDTH = 50;
         const UFO_HEIGHT = 25;
+        const MAX_PARTICLES = 200;
 
         // ===============================
         // Game State
         // ===============================
         let gameState = 'start'; // start, playing, paused, gameOver, levelComplete
         let score = 0;
-        let highScore = parseInt(localStorage.getItem('invadersHighScore')) || 0;
+        let highScore = parseInt(localStorage.getItem('invadersHighScore'), 10) || 0;
         let level = 1;
         let lives = 3;
         let soundEnabled = true;
+        let isGameOver = false;
 
         let player = null;
         let enemies = [];
@@ -418,10 +426,16 @@
         // ===============================
         // Audio Context
         // ===============================
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let audioContext;
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            console.warn('AudioContext not available:', e);
+            audioContext = null;
+        }
 
         function playSound(type) {
-            if (!soundEnabled) return;
+            if (!soundEnabled || !audioContext) return;
 
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
@@ -625,7 +639,10 @@
             }
 
             draw() {
-                if (this.health <= 0) return;
+                if (this.health <= 0) {
+                    this.hits = []; // Clear memory when barrier is destroyed
+                    return;
+                }
 
                 ctx.fillStyle = `rgba(0, 255, 65, ${this.health / 100})`;
                 ctx.fillRect(this.x, this.y, this.width, this.height);
@@ -774,7 +791,7 @@
                         enemy.y += ENEMY_HEIGHT / 2;
 
                         // Check if enemies reached player
-                        if (enemy.y + enemy.height >= player.y) {
+                        if (enemy.y + enemy.height >= player.y && !isGameOver) {
                             gameOver();
                         }
                     });
@@ -848,8 +865,13 @@
 
                         if (score > highScore) {
                             highScore = score;
-                            localStorage.setItem('invadersHighScore', highScore);
+                            try {
+                                localStorage.setItem('invadersHighScore', highScore);
+                            } catch (e) {
+                                console.warn('Failed to save high score:', e);
+                            }
                         }
+                        updateUI(); // Update UI when score changes
                     }
                 });
 
@@ -868,8 +890,13 @@
 
                     if (score > highScore) {
                         highScore = score;
-                        localStorage.setItem('invadersHighScore', highScore);
+                        try {
+                            localStorage.setItem('invadersHighScore', highScore);
+                        } catch (e) {
+                            console.warn('Failed to save high score:', e);
+                        }
                     }
+                    updateUI(); // Update UI when score changes
                 }
 
                 // Bullets vs barriers
@@ -898,8 +925,9 @@
                     lives--;
                     createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#00ff41');
                     playSound('explosion');
+                    updateUI(); // Update UI when lives change
 
-                    if (lives <= 0) {
+                    if (lives <= 0 && !isGameOver) {
                         gameOver();
                     }
                 }
@@ -920,6 +948,10 @@
         }
 
         function createExplosion(x, y, color) {
+            // Enforce particle limit to prevent memory leaks
+            if (particles.length >= MAX_PARTICLES) {
+                particles.splice(0, 20); // Remove oldest particles
+            }
             for (let i = 0; i < 20; i++) {
                 particles.push(new Particle(x, y, color));
             }
@@ -958,6 +990,7 @@
             score = 0;
             lives = 3;
             level = 1;
+            isGameOver = false; // Reset game over flag
             gameState = 'playing';
             initGame();
             hideOverlay('startOverlay');
@@ -979,6 +1012,8 @@
         }
 
         function gameOver() {
+            if (isGameOver) return; // Prevent multiple calls
+            isGameOver = true;
             gameState = 'gameOver';
             document.getElementById('finalScore').textContent = `スコア: ${score}`;
             showOverlay('gameOverOverlay');
@@ -991,7 +1026,11 @@
             score += bonus;
             if (score > highScore) {
                 highScore = score;
-                localStorage.setItem('invadersHighScore', highScore);
+                try {
+                    localStorage.setItem('invadersHighScore', highScore);
+                } catch (e) {
+                    console.warn('Failed to save high score:', e);
+                }
             }
             document.getElementById('levelBonus').textContent = `ボーナス: ${bonus}`;
             showOverlay('levelCompleteOverlay');
@@ -1000,6 +1039,7 @@
 
         function nextLevel() {
             level++;
+            isGameOver = false; // Reset game over flag for next level
             gameState = 'playing';
             initGame();
             hideOverlay('levelCompleteOverlay');
